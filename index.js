@@ -1,38 +1,22 @@
-const functions = require('firebase-functions');
+// server.js
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const cors = require('cors');
+const upload = multer({ dest: 'uploads/' });
 
 const app = express();
 const PORT = 3005;
+//app.use(onlyJson);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({ origin: true }));
+app.post('/upload_files', upload.array('files'), uploadFiles);
 
-app.get("/", (req, res) => {
-    return res.status(200).send("Hi there, what's up?");
-});
-
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/'); // Save uploaded files to the 'uploads' directory
-    },
-    filename: function (req, file, cb) {
-        cb(null, file.originalname); // Use the original filename for the uploaded file
-    }
-});
-const upload = multer({ storage: storage });
-app.post('/upload', upload.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('No file uploaded');
-    }
-    res.status(200).send('File uploaded successfully');
-});
-
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+function uploadFiles(req, res) {
+  console.log(req.body);
+  console.log(req.files);
+  res.json({ message: 'Successfully uploaded files' });
+}
 
 app.listen(PORT, () => {
-    console.log(`Listening on PORT ${PORT}`);
+  console.log(`Server listening on PORT: ${PORT}`);
 });
-
-exports.app = functions.https.onRequest(app);

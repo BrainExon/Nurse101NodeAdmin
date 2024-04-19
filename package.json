@@ -6,10 +6,12 @@
   "server": "nodemon index.js",
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.5.0",
+    "axios": "^1.6.8",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "firebase-admin": "^12.1.0",
     "firebase-functions": "^4.9.0",
+    "form-data": "^4.0.0",
     "multer": "^1.4.5-lts.1",
     "nodemon": "^3.1.0",
     "openapi": "^1.0.1",

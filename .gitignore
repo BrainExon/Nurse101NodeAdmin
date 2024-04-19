@@ -1,6 +1,7 @@
 # Dependency directories
 node_modules/
 
+uploads/
 # Environment variables file
 .env
 
