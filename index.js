@@ -3,15 +3,11 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const fs = require('fs');
 const app = express();
-const PORT = 5000;
+const PORT = 5001;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Endpoint to get a file by name
 app.get('/get_file/:filename', getFileByName);
-
-// Custom middleware function to log configuration settings
-
 function getFileByName(req, res) {
   const fileName = req.params.filename;
   if (!fileName) {
@@ -35,11 +31,11 @@ function getFileByName(req, res) {
     });
   }
 }
-app.post('/upload_files', upload.array('files'), uploadFiles);
 
+app.post('/brainexonapi-d7621/us-central1/upload_files', upload.array('files'), uploadFiles);
 function uploadFiles(req, res) {
   console.log(req.body);
-  console.log(req.files);
+  console.log(req);
   res.json({ message: 'Successfully uploaded files' });
 }
 
