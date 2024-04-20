@@ -5,6 +5,7 @@ uploads/
 # Environment variables file
 .env
 
+jwk_token.*
 # Log files
 *.log
 
