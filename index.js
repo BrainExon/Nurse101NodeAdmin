@@ -25,7 +25,8 @@ const minter = async (req, res) => {
     const jwk_token = process.env.AR_DRIVE_JWK;
     const arweave_images_folder_id = process.env.AR_ARWEAVE_IMAGES_FOLDER_ID;
     const ardrive_client = process.env.ARDRIVE_CLIENT;
-    const image_path = `${process.env.AR_PROJECT_ROOT}/functions/${file.destination}${file.originalname}`;
+    //const image_path = `${process.env.AR_PROJECT_ROOT}/functions/${file.destination}${file.originalname}`;
+    const image_path = `${file.destination}${file.originalname}`;
     const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
     const curl_response = await uploadFileToArDrive(command);
     console.log(`CURL RESPONSE: ${curl_response}`);
