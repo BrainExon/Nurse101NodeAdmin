@@ -35,3 +35,5 @@ yarn-error.log*
 # Mac specific files
 .AppleDouble
 .DS_Store
+
+output/

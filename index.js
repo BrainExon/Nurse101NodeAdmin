@@ -1,6 +1,6 @@
 const express = require('express');
-import {v4 as uuidv4} from 'uuid';
 const multer = require('multer');
+const getEntityIdByType = require('./utilities/util');
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
@@ -43,89 +43,28 @@ const getFileNameWithoutExtension = async () => {
 };
 
 const ARDriveNftMinter = async () => {
+  console.log("\n=========================\n");
+  console.log('       ARDriveNftMinter      ');
+  console.log("\n=========================\n");
   const myWallet = readJWKFile('./jwk_token.json');
   const arDrive = arDriveFactory({ wallet: myWallet });
   if (arDrive) {
     try {
-      console.log("\n=========================\n");
-      console.log(`get file Name without extension....`)
-      console.log("\n=========================\n");
       const fileName = await getFileNameWithoutExtension();
       if (fileName.error) {
-        console.error("\n=========================\n");
-        console.error(`[getFileNameWithoutExtension] error: ${JSON.stringify(fileName.error)}`);
-        console.error("\n=========================\n");
         return {success: false, data: '', error: fileName.error};
       }
-      console.log("\n=========================\n");
-      console.log(`[ARDriveNftMinter] file name: ${JSON.stringify(fileName.data)}`);
-      console.log("\n=========================\n");
-      /**
-       *  createPublicDrive() response looks something like this:
-       *  [
-       *   {
-       *     "type": "drive",
-       *     "metadataTxId": "ArtPzOiagC8cZOOAPOAQDSiS9xlGa_ytqvnre0MNXa0",
-       *     "entityId": "3480fed0-db3d-4916-a7f4-215c2e2ceb8b",
-       *     "bundledIn": "FpXxGSyt0i7D3w3QjAhYWwLWZSIZVFHrbYBhif9j8B4",
-       *     "entityName": "IMG_4540"
-       *   },
-       *   {
-       *     "type": "folder",
-       *     "metadataTxId": "B4eV4RUI6S1b-s5YItHWzKZ49DBFmIP8aZxCVQnefEM",
-       *     "entityId": "332d92de-55d2-46c1-b146-242c8f9a8882",
-       *     "bundledIn": "FpXxGSyt0i7D3w3QjAhYWwLWZSIZVFHrbYBhif9j8B4",
-       *     "entityName": "IMG_4540"
-       *   },
-       *   {
-       *     "type": "bundle",
-       *     "bundleTxId": "FpXxGSyt0i7D3w3QjAhYWwLWZSIZVFHrbYBhif9j8B4"
-       *   }
-       * ]
-       */
-      const createDriveResult = await arDrive.createPublicDrive({driveName: fileName.data});
-      if (!createDriveResult.created) {
-        const error = `[arDrive.createPublicDrive] create drive failed: ${JSON.stringify(createDriveResult)}`;
-        console.error("\n=========================\n");
-        console.error(error);
-        console.error("\n=========================\n");
-        return {success: false, data: '', error: error};
-      }
 
-      const newDrive = createDriveResult.created;
-
-      /**
-       * @param data
-       * @param key
-       * @returns {Promise<*|null>}
-       */
-      //const getEntityIdByType = async (data: any[], key: string) => {
-      const getEntityIdByType = async (data, key) => {
-        const folder = data.find(item => item.type === key);
-        if (folder) {
-          return folder.entityId;
-        } else {
-          return null; // or handle the case where no folder is found
-        }
-      };
-
-      const newDriveFolderEntityId = await getEntityIdByType(newDrive, 'folder');
-      if (!newDriveFolderEntityId) {
-        const error = `[getEntityIdByType] NULL Drive Folder Entity ID: ${JSON.stringify(createDriveResult)}`;
-        console.error("\n=========================\n");
-        console.error(error);
-        console.error("\n=========================\n");
-        return {success: false, data: '', error: error};
-
-      }
-
-      const destinationFolderId = EID(newDriveFolderEntityId);
+     // const rootFolderId='6e6387fb-b181-4d9e-aba7-c39bd72484c0';
+      const rootFolderId = process.env.ARDRIVE_IMAGES_FOLDER_ID;
+      const destinationFolderId = EID(rootFolderId);
+      console.log(`[EID] destinationFolderId: ${JSON.stringify(destinationFolderId)}`);
 
       if (!destinationFolderId) {
         const err = `[EID] NULL destinationFolderId!`;
         console.error("\n=========================\n");
-        console.log(err);
-        console.log("\n=========================\n");
+        console.error(err);
+        console.error("\n=========================\n");
         return {success: false, data: '', error: err};
       }
 
