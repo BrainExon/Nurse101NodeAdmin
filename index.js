@@ -20,6 +20,11 @@ async function uploadFileToArDrive(cmd) {
 }
 
 const mintNft = async (req, res) => {
+  const file = req.files[0];
+  if (!file) {
+    console.error('No file uploaded');
+    return { success: false, data: '', error: 'No file uploaded' };
+  }
   try {
     const file = req.files[0] || 'null';
     const jwk_token = process.env.AR_DRIVE_JWK;
@@ -29,7 +34,6 @@ const mintNft = async (req, res) => {
     const image_path = `${file.destination}${file.originalname}`;
     const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
     const curl_response = await uploadFileToArDrive(command);
-    console.log(`CURL RESPONSE: ${curl_response}`);
     return curl_response;
   } catch (error) {
     console.error('Error in mintNft:', error);
@@ -85,7 +89,7 @@ const getFileByName = async (req, res) => {
 async function uploadFiles(req, res) {
   try {
     const minted = await mintNft(req, res);
-    console.log(`minted: ${JSON.parse(minted)}`);
+    console.log(`minted: ${minted}`);
     if (minted.error) {
       console.error(`[uploadFiles][mintNft] Error: ${JSON.stringify(minted.error)}`);
       const del = await deleteFilesInFolder('./uploads');
@@ -94,7 +98,11 @@ async function uploadFiles(req, res) {
       const del = await deleteFilesInFolder('./uploads');
     }
     // end
-    return res.json({ success: true, data: JSON.parse(minted), error: '' });
+    res.format({
+      json: function(){
+        return res.json({ success: true, data: minted, error: '' });
+      }
+    });
   } catch (error) {
     console.error('UnhandledPromiseRejection:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
