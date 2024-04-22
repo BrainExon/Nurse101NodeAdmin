@@ -5,15 +5,19 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-async function uploadFileToArDrive(cmd) {
+function cleanString(inputString) {
+  return inputString.replace(/\\n\s+/g, '').replace(/\\/g, '');
+}
+async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error executing command: ${error}`);
         reject({ success: false, data: '', error: error });
       } else {
-        console.log(`File uploaded successfully: ${stdout}`);
-        resolve({ success: true, data: stdout, error: '' });
+        const jsonResponse = JSON.parse(stdout);
+        console.log(`[ardriveUpload] jsonResponse: ${JSON.stringify(jsonResponse)}`);
+        resolve({ success: true, data: jsonResponse, error: '' });
       }
     });
   });
@@ -33,8 +37,7 @@ const mintNft = async (req, res) => {
     //const image_path = `${process.env.AR_PROJECT_ROOT}/functions/${file.destination}${file.originalname}`;
     const image_path = `${file.destination}${file.originalname}`;
     const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
-    const curl_response = await uploadFileToArDrive(command);
-    return curl_response;
+    return await ardriveUpload(command);
   } catch (error) {
     console.error('Error in mintNft:', error);
     throw error;
@@ -100,7 +103,7 @@ async function uploadFiles(req, res) {
     // end
     res.format({
       json: function(){
-        return res.json({ success: true, data: minted, error: '' });
+        return res.status(200).json({ success: true, data: minted, error: '' });
       }
     });
   } catch (error) {

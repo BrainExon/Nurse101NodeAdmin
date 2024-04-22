@@ -5,7 +5,7 @@
   "license": "MIT",
   "server": "nodemon index.js",
   "scripts": {
-    "start": "NODE_OPTIONS=--max-old-space-size=4096 serve"
+    "start": "nodemon server.js"
   },
   "type": "commonjs",
   "dependencies": {
