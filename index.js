@@ -19,7 +19,7 @@ async function uploadFileToArDrive(cmd) {
   });
 }
 
-const minter = async (req, res) => {
+const mintNft = async (req, res) => {
   try {
     const file = req.files[0] || 'null';
     const jwk_token = process.env.AR_DRIVE_JWK;
@@ -32,7 +32,7 @@ const minter = async (req, res) => {
     console.log(`CURL RESPONSE: ${curl_response}`);
     return curl_response;
   } catch (error) {
-    console.error('Error in minter:', error);
+    console.error('Error in mintNft:', error);
     throw error;
   }
 };
@@ -84,18 +84,20 @@ const getFileByName = async (req, res) => {
 
 async function uploadFiles(req, res) {
   try {
-    const minted = await minter(req, res);
+    const minted = await mintNft(req, res);
+    console.log(`minted: ${JSON.parse(minted)}`);
     if (minted.error) {
-      console.error(`[uploadFiles][minter] Error: ${JSON.stringify(minted.error)}`);
+      console.error(`[uploadFiles][mintNft] Error: ${JSON.stringify(minted.error)}`);
       const del = await deleteFilesInFolder('./uploads');
       return res.json({ success: false, data: '', error: minted.error });
     } else {
       const del = await deleteFilesInFolder('./uploads');
     }
-    return res.json({ success: true, data: 'Successfully uploaded files.', error: '' });
+    // end
+    return res.json({ success: true, data: JSON.parse(minted), error: '' });
   } catch (error) {
     console.error('UnhandledPromiseRejection:', error);
-    res.status(500).json({ success: false, error: 'Internal Server Error' });
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 }
 
