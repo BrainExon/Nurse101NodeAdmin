@@ -1,3 +1,10 @@
+/**
+ * A nodejs express server to mint arweave NFTs using 'ardrive'
+ * command line:
+ * $`npm start`
+ * @type {(function(): function(*, *, *): void)|{}}
+ */
+// command line: `npm start`
 const express = require('express');
 const multer = require('multer');
 const { exec } = require('child_process');
@@ -16,7 +23,6 @@ async function ardriveUpload(cmd) {
         reject({ success: false, data: '', error: error });
       } else {
         const jsonResponse = JSON.parse(stdout);
-        console.log(`[ardriveUpload] jsonResponse: ${JSON.stringify(jsonResponse)}`);
         resolve({ success: true, data: jsonResponse, error: '' });
       }
     });
@@ -92,7 +98,6 @@ const getFileByName = async (req, res) => {
 async function uploadFiles(req, res) {
   try {
     const minted = await mintNft(req, res);
-    console.log(`minted: ${minted}`);
     if (minted.error) {
       console.error(`[uploadFiles][mintNft] Error: ${JSON.stringify(minted.error)}`);
       const del = await deleteFilesInFolder('./uploads');
@@ -100,10 +105,10 @@ async function uploadFiles(req, res) {
     } else {
       const del = await deleteFilesInFolder('./uploads');
     }
-    // end
+    console.error(`[mintNft] success: ${JSON.stringify(minted.error)}`);
     res.format({
       json: function(){
-        return res.status(200).json({ success: true, data: minted, error: '' });
+        return res.status(200).json({ success: true, data: minted.data, error: '' });
       }
     });
   } catch (error) {
