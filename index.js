@@ -1,7 +1,6 @@
 const express = require('express');
 const multer = require('multer');
 const { exec } = require('child_process');
-const {writeFile, readFile} = require('./utilities/util.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -86,14 +85,7 @@ const getFileByName = async (req, res) => {
 async function uploadFiles(req, res) {
   try {
     const minted = await mintNft(req, res);
-    console.log(`minted: ${minted}`);
-    writeFile('./minted.json', JSON.stringify(minted), (err) => {
-      if (err) {
-        console.error('Error writing to file:', err);
-      } else {
-        console.log('Data has been written to the file successfully.');
-      }
-    });
+    console.log(`minted: ${JSON.parse(minted)}`);
     if (minted.error) {
       console.error(`[uploadFiles][mintNft] Error: ${JSON.stringify(minted.error)}`);
       const del = await deleteFilesInFolder('./uploads');
@@ -101,7 +93,8 @@ async function uploadFiles(req, res) {
     } else {
       const del = await deleteFilesInFolder('./uploads');
     }
-    return res.json({ success: true, data: JSON.parse(JSON.stringify(minted)), error: '' });
+    // end
+    return res.json({ success: true, data: JSON.parse(minted), error: '' });
   } catch (error) {
     console.error('UnhandledPromiseRejection:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
