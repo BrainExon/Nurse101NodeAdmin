@@ -152,10 +152,9 @@ const storageLocation = multer.diskStorage({
     callback(null, 'uploads/');
   },
   filename: function (req, file, callback) {
-    const cleanName = replaceStringByKey(file.originalname, 'rn_image_picker_lib_temp_', '');
-    console.log('[storageLocation] cleanName: ', JSON.stringify(cleanName));
-    //callback(null, file.originalname);
-    callback(null, cleanName);
+    // const cleanName = replaceStringByKey(file.originalname, 'rn_image_picker_lib_temp_', '');
+    //console.log('[storageLocation] cleanName: ', JSON.stringify(cleanName));
+    callback(null, file.originalname);
   }
 });
 
