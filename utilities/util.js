@@ -1,5 +1,9 @@
 const fs = require('fs');
 
+function cleanString(inputString) {
+  return inputString.replace(/\\n\s+/g, '').replace(/\\/g, '');
+}
+
 const getEntityIdByType = (data, key, callback) => {
   const folder = data.find(item => item.type === key);
   if (folder) {
@@ -29,8 +33,18 @@ const readFile = (filePath, callback) => {
   });
 };
 
+const isValidJSON = (input) => {
+  try {
+    JSON.parse(input);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 module.exports = {
   getEntityIdByType,
   writeFile,
-  readFile
+  readFile,
+  cleanString,
+  isValidJSON,
 };
