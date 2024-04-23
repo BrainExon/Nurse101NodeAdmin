@@ -41,10 +41,22 @@ const isValidJSON = (input) => {
     return false;
   }
 };
+const replaceStringByKey = (inputString, key, replacement) => {
+  console.log('[replaceStringByKey] inputString: ', JSON.stringify(inputString));
+  console.log('[replaceStringByKey] key: ', JSON.stringify(key));
+  console.log('[replaceStringByKey] replacement: ', JSON.stringify(replacement));
+  // const clean = inputString.split(`{${key}}`).join(replacement);
+  const regex = new RegExp(key, 'g');
+  const clean = inputString.replace(regex, replacement);
+  console.log('[replaceStringByKey] clean: ', JSON.stringify(clean));
+  return clean;
+};
+
 module.exports = {
   getEntityIdByType,
   writeFile,
   readFile,
   cleanString,
   isValidJSON,
+  replaceStringByKey,
 };
