@@ -101,11 +101,11 @@ async function uploadFiles(req, res) {
     if (minted.error) {
       console.error(`[uploadFiles][mintNft] Error: ${JSON.stringify(minted.error)}`);
       const del = await deleteFilesInFolder('./uploads');
-      return res.json({ success: false, data: '', error: minted.error });
+      return res.status(404).json({ success: false, data: '', error: minted.error });
     } else {
       const del = await deleteFilesInFolder('./uploads');
     }
-    console.error(`[mintNft] success: ${JSON.stringify(minted.error)}`);
+    console.error(`[mintNft] success: ${JSON.stringify(minted.data)}`);
     res.format({
       json: function(){
         return res.status(200).json({ success: true, data: minted.data, error: '' });
@@ -126,7 +126,7 @@ const storageLocation = multer.diskStorage({
   }
 });
 
-const PORT = 5001;
+const PORT = 3030;
 const upload = multer({ storage: storageLocation });
 const app = express();
 
