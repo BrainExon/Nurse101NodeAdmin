@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 const db = require('simple-node-jsondbv2');
-const {isValidJSON} = require("./utilities/util");
+const {isValidJSON, replaceStringByKey} = require("./utilities/util");
 const dbPath = path.join(__dirname, 'toqyn_db');
 
 async function initializeDb (dbPath){
@@ -152,7 +152,10 @@ const storageLocation = multer.diskStorage({
     callback(null, 'uploads/');
   },
   filename: function (req, file, callback) {
-    callback(null, file.originalname);
+    const cleanName = replaceStringByKey(file.originalname, 'rn_image_picker_lib_temp_', '');
+    console.log('[storageLocation] cleanName: ', JSON.stringify(cleanName));
+    //callback(null, file.originalname);
+    callback(null, cleanName);
   }
 });
 
