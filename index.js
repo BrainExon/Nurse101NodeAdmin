@@ -17,7 +17,6 @@ const dbPath = path.join(__dirname, 'toqyn_db');
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
 }
-
 const getUsersFromDB = async () => {
   try {
     const users = await db.dbFind('users', {});
@@ -27,7 +26,6 @@ const getUsersFromDB = async () => {
     throw new Error('Error retrieving users from the database');
   }
 };
-
 async function dbInsertUser(req, res) {
   console.log(`[dbInsertUser]...`);
   try {
