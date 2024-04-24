@@ -9,6 +9,7 @@ const multer = require('multer');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { check, validationResult } = require('express-validator');
 require('dotenv').config();
 const db = require('simple-node-jsondbv2');
 const dbPath = path.join(__dirname, 'toqyn_db');
@@ -16,106 +17,134 @@ const dbPath = path.join(__dirname, 'toqyn_db');
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
 }
-const getUsersFromDB = async () => {
+
+const dbQuery = async (key) => {
+  console.log(`[dbQuery] key: ${JSON.stringify(key)}`)
   try {
-    const users = await db.dbFind('users', {});
-    return users;
+    const response = await db.dbFind(key, {});
+    return response;
   } catch (error) {
-    console.error('Error in getUsersFromDB:', error);
-    throw new Error('Error retrieving users from the database');
+    console.error('Error in [dbQuery]: ', error);
+    throw new Error('Error retrieving ' + key + ' from the database');
   }
 };
-/*
-async function dbAddUser(req, res) {
-  console.log(`[dbAddUser]...`);
+
+async function upsertImage(req, res) {
   try {
-    const newUser = req.body;
-    if (!newUser) {
-      const err = '[dbAddUser] null User request parameter.';
-      console.log(err);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, data: '', errors: errors.array() });
+    }
+    const image = req.body;
+    if (!image) {
+      const err = '[upsertImage] null "Image".';
       return res.status(404).json({ success: false, data: '', error: err });
     }
-    await db.dbInsert('users', newUser);
-    const results = await db.dbFind('users', { name: newUser.name });
-    if (!Array.isArray(results) || results.length === 0) {
-      const err = '[dbAddUser] unable to find new user.';
-      console.log(err);
-      return res.status(404).json({ success: false, data: '', error: err });
+    const existingImage = await db.dbFind('images', { imageId: image.imageId });
+    if (Array.isArray(existingImage) && existingImage.length > 0) {
+      const updatedImage = { ...existingImage[0], ...image };
+      const updated = await db.dbUpdate('images', { imageId: image.imageId }, updatedImage);
+      if (!updated.modified) {
+        const err = '[upsertImage] unable to update image.';
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: updatedImage, error: '' });
+    } else {
+      console.log(`Attempt to Insert image...`)
+      await db.dbInsert('images', image);
+      const results = await db.dbFind('images', { imageId: image.imageId });
+      console.log(`[upsertImage] results: ${JSON.stringify(results, null, 2)}`);
+      if (!Array.isArray(results) && results.length === 0) {
+        const err = '[upsertImage] unable to add image.';
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: results, error: '' });
     }
-    res.status(200).json({ success: true, data: results, error: '' });
   } catch (error) {
-    console.error('Error in dbAddUser:', error);
-    return res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+    const err = `[upsertImage] Internal Server Error: ${JSON.stringify(error)}`;
+    return res.status(500).json({ success: false, data: '', error: `${err}` });
   }
 }
-*/
+
 async function upsertChallenge(req, res) {
   try {
     const challenge = req.body;
     if (!challenge) {
-      const err = '[upsertChallenge] null User request parameter.';
-      return res.status(404).json({ success: false, data: '', error: err });
+      const err = '[upsertChallenge] Null challenge.';
+      return res.status(400).json({ success: false, data: '', error: err });
     }
+
     const existingChallenge = await db.dbFind('challenges', { chId: challenge.chId });
+
     if (Array.isArray(existingChallenge) && existingChallenge.length > 0) {
       const updatedChallenge = { ...existingChallenge[0], ...challenge };
-      const updated = await db.dbUpdate('challenges', { chId: challenge.chId }, updatedChallenge);
+      const updated = await db.dbUpdate('challenges', { chId: updatedChallenge.chId }, updatedChallenge);
+
       if (!updated.modified) {
-        const err = '[upsertChallenge] unable to update challenge.';
-        return res.status(404).json({ success: false, data: '', error: err });
+        const err = '[upsertChallenge] Unable to update challenge.';
+        return res.status(400).json({ success: false, data: '', error: err });
       }
+
+      console.log('[upsertChallenge] Existing challenge updated...');
       return res.status(200).json({ success: true, data: updatedChallenge, error: '' });
     } else {
-      console.log(`Attempt to Insert challenge...`)
       await db.dbInsert('challenges', challenge);
       const results = await db.dbFind('challenges', { chId: challenge.chId });
-      console.log(`dbInsert response: ${JSON.stringify(results, null, 2)}`);
 
-      if (!Array.isArray(results) && results.length === 0) {
-        const err = '[upsertChallenge] unable to add challenge.';
-        return res.status(404).json({ success: false, data: '', error: err });
+      if (!Array.isArray(results) || results.length === 0) {
+        const err = '[upsertChallenge] Unable to add challenge.';
+        return res.status(400).json({ success: false, data: '', error: err });
       }
+
+      console.log('[upsertChallenge] New challenge inserted...');
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
-    const err = `[upsertChallenge] Internal Server Error: ${JSON.stringify(error)}`;
-    return res.status(500).json({ success: false, data: '', error: `${err}` });
+    const err = `[upsertChallenge] Internal Server Error: ${error.message}`;
+    return res.status(500).json({ success: false, data: '', error: err });
   }
 }
 
-async function upsertUser(req, res) {
+async function upsertUser( req, res) {
   try {
     const user = req.body;
     if (!user) {
       const err = '[upsertUser] null User request parameter.';
-      return res.status(404).json({ success: false, data: '', error: err });
+      return res.status(400).json({ success: false, data: '', error: err });
     }
+
     const existingUser = await db.dbFind('users', { userId: user.userId });
+
     if (Array.isArray(existingUser) && existingUser.length > 0) {
       const updatedUser = { ...existingUser[0], ...user };
-      const updated = await db.dbUpdate('users', { userId: user.userId }, updatedUser);
+      const updated = await db.dbUpdate('users', { userId: updatedUser.userId }, updatedUser);
+
       if (!updated.modified) {
         const err = '[upsertUser] unable to update user.';
-        return res.status(404).json({ success: false, data: '', error: err });
+        return res.status(400).json({ success: false, data: '', error: err });
       }
+
+      console.log(`[upsertUsers] existing user updated...`);
       return res.status(200).json({ success: true, data: updatedUser, error: '' });
     } else {
-      console.log(`Attempt to Insert user...`)
       await db.dbInsert('users', user);
       const results = await db.dbFind('users', { userId: user.userId });
-      console.log(`dbInsert response: ${JSON.stringify(results, null, 2)}`);
 
-      if (!Array.isArray(results) && results.length === 0) {
+      if (!Array.isArray(results) || results.length === 0) {
         const err = '[upsertUser] unable to add user.';
-        return res.status(404).json({ success: false, data: '', error: err });
+        return res.status(400).json({ success: false, data: '', error: err });
       }
+
+      console.log(`[upsertUsers] new user inserted...`);
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
-    const err = `[upsertUser] Internal Server Error:  ${JSON.stringify(error)}`;
-    return res.status(500).json({ success: false, data: '', error: `${err}` });
+    const err = `[upsertUser] Internal Server Error: ${error.message}`;
+    return res.status(500).json({ success: false, data: '', error: err });
   }
 }
+
+
 async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, (error, stdout, stderr) => {
@@ -236,16 +265,39 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
 //app.post('/add_user', dbAddUser);
-app.post('/add_user', upsertUser);
-app.get('/get_users', async (req, res) => {
+app.post('/upsert_image', upsertImage);
+app.get('/get_images', async (req, res) => {
   try {
-    const users = await getUsersFromDB();
-    res.status(200).json({ success: true, data: users, error: '' });
+    const images = await dbQuery('images');
+    res.status(200).json({ success: true, data: images, error: '' });
   } catch (error) {
-    console.error('Error in getUsers endpoint:', error);
+    console.error('Error in [dbQuery] endpoint:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
+app.post('/upsert_challenge', upsertChallenge);
+app.get('/get_challenges', async (req, res) => {
+  try {
+    const challenges = await dbQuery('challenges');
+    res.status(200).json({ success: true, data: challenges, error: '' });
+  } catch (error) {
+    console.error('Error in [dbQuery] endpoint:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+});
+
+//app.post('/add_user', upsertUser);
+app.post('/add_user', upsertUser);
+app.get('/get_users', async (req, res) => {
+  try {
+    const users = await dbQuery('users');
+    res.status(200).json({ success: true, data: users, error: '' });
+  } catch (error) {
+    console.error('Error in [dbQuery] endpoint:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+});
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ success: false, error: 'Internal Server Error' });
