@@ -17,7 +17,6 @@ const dbPath = path.join(__dirname, 'toqyn_db');
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
 }
-
 const getUsersFromDB = async () => {
   try {
     const users = await db.dbFind('users', {});
@@ -27,7 +26,6 @@ const getUsersFromDB = async () => {
     throw new Error('Error retrieving users from the database');
   }
 };
-
 async function dbInsertUser(req, res) {
   console.log(`[dbInsertUser]...`);
   try {
@@ -152,10 +150,9 @@ const storageLocation = multer.diskStorage({
     callback(null, 'uploads/');
   },
   filename: function (req, file, callback) {
-    const cleanName = replaceStringByKey(file.originalname, 'rn_image_picker_lib_temp_', '');
-    console.log('[storageLocation] cleanName: ', JSON.stringify(cleanName));
-    //callback(null, file.originalname);
-    callback(null, cleanName);
+    // const cleanName = replaceStringByKey(file.originalname, 'rn_image_picker_lib_temp_', '');
+    //console.log('[storageLocation] cleanName: ', JSON.stringify(cleanName));
+    callback(null, file.originalname);
   }
 });
 
@@ -166,7 +163,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
-app.post('/create_user', dbInsertUser);
+app.post('/add_user', dbInsertUser);
 app.get('/get_users', async (req, res) => {
   try {
     const users = await getUsersFromDB();
