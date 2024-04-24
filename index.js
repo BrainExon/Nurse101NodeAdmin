@@ -49,6 +49,40 @@ async function dbAddUser(req, res) {
   }
 }
 */
+async function upsertChallenge(req, res) {
+  try {
+    const challenge = req.body;
+    if (!challenge) {
+      const err = '[upsertChallenge] null User request parameter.';
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+    const existingChallenge = await db.dbFind('challenges', { chId: challenge.chId });
+    if (Array.isArray(existingChallenge) && existingChallenge.length > 0) {
+      const updatedChallenge = { ...existingChallenge[0], ...challenge };
+      const updated = await db.dbUpdate('challenges', { chId: challenge.chId }, updatedChallenge);
+      if (!updated.modified) {
+        const err = '[upsertChallenge] unable to update challenge.';
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: updatedChallenge, error: '' });
+    } else {
+      console.log(`Attempt to Insert challenge...`)
+      await db.dbInsert('challenges', challenge);
+      const results = await db.dbFind('challenges', { chId: challenge.chId });
+      console.log(`dbInsert response: ${JSON.stringify(results, null, 2)}`);
+
+      if (!Array.isArray(results) && results.length === 0) {
+        const err = '[upsertChallenge] unable to add challenge.';
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: results, error: '' });
+    }
+  } catch (error) {
+    const err = `[upsertChallenge] Internal Server Error: ${JSON.stringify(error)}`;
+    return res.status(500).json({ success: false, data: '', error: `${err}` });
+  }
+}
+
 async function upsertUser(req, res) {
   try {
     const user = req.body;
@@ -57,11 +91,9 @@ async function upsertUser(req, res) {
       return res.status(404).json({ success: false, data: '', error: err });
     }
     const existingUser = await db.dbFind('users', { userId: user.userId });
-    console.log(`exising user found: ${JSON.stringify(existingUser, null, 2)}`);
     if (Array.isArray(existingUser) && existingUser.length > 0) {
       const updatedUser = { ...existingUser[0], ...user };
       const updated = await db.dbUpdate('users', { userId: user.userId }, updatedUser);
-
       if (!updated.modified) {
         const err = '[upsertUser] unable to update user.';
         return res.status(404).json({ success: false, data: '', error: err });
@@ -80,8 +112,8 @@ async function upsertUser(req, res) {
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
-    const err = `Error upserting user: ${JSON.stringify(error)}`;
-    return res.status(500).json({ success: false, data: '', error: `Internal Server Error: ${err}` });
+    const err = `[upsertUser] Internal Server Error:  ${JSON.stringify(error)}`;
+    return res.status(500).json({ success: false, data: '', error: `${err}` });
   }
 }
 async function ardriveUpload(cmd) {
