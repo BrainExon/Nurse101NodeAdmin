@@ -165,7 +165,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
-app.post('/create_user', dbInsertUser);
+app.post('/add_user', dbInsertUser);
 app.get('/get_users', async (req, res) => {
   try {
     const users = await getUsersFromDB();
