@@ -11,7 +11,6 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 const db = require('simple-node-jsondbv2');
-const {isValidJSON, replaceStringByKey} = require("./utilities/util");
 const dbPath = path.join(__dirname, 'toqyn_db');
 
 async function initializeDb (dbPath){
@@ -26,24 +25,66 @@ const getUsersFromDB = async () => {
     throw new Error('Error retrieving users from the database');
   }
 };
-async function dbInsertUser(req, res) {
-  console.log(`[dbInsertUser]...`);
+/*
+async function dbAddUser(req, res) {
+  console.log(`[dbAddUser]...`);
   try {
     const newUser = req.body;
+    if (!newUser) {
+      const err = '[dbAddUser] null User request parameter.';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
     await db.dbInsert('users', newUser);
     const results = await db.dbFind('users', { name: newUser.name });
     if (!Array.isArray(results) || results.length === 0) {
-      const err = '[dbInsertUser] unable to find new user.';
+      const err = '[dbAddUser] unable to find new user.';
       console.log(err);
       return res.status(404).json({ success: false, data: '', error: err });
     }
     res.status(200).json({ success: true, data: results, error: '' });
   } catch (error) {
-    console.error('Error in dbInsertUser:', error);
-    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+    console.error('Error in dbAddUser:', error);
+    return res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 }
+*/
+async function upsertUser(req, res) {
+  try {
+    const user = req.body;
+    if (!user) {
+      const err = '[upsertUser] null User request parameter.';
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+    const existingUser = await db.dbFind('users', { userId: user.userId });
+    console.log(`exising user found: ${JSON.stringify(existingUser, null, 2)}`);
+    if (Array.isArray(existingUser) && existingUser.length > 0) {
+      const updatedUser = { ...existingUser[0], ...user };
+      const updated = await db.dbUpdate('users', { userId: user.userId }, updatedUser);
 
+      if (!updated.modified) {
+        const err = '[upsertUser] unable to update user.';
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: updatedUser, error: '' });
+    } else {
+      console.log(`Attempt to Insert user...`)
+      await db.dbInsert('users', user);
+      const results = await db.dbFind('users', { userId: user.userId });
+      console.log(`dbInsert response: ${JSON.stringify(results, null, 2)}`);
+
+      if (!Array.isArray(results) && results.length === 0) {
+        const err = '[upsertUser] unable to add user.';
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+
+      return res.status(200).json({ success: true, data: results, error: '' });
+    }
+  } catch (error) {
+    const err = `Error upserting user: ${JSON.stringify(error)}`;
+    return res.status(500).json({ success: false, data: '', error: `Internal Server Error: ${err}` });
+  }
+}
 async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, (error, stdout, stderr) => {
@@ -163,7 +204,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
-app.post('/add_user', dbInsertUser);
+//app.post('/add_user', dbAddUser);
+app.post('/add_user', upsertUser);
 app.get('/get_users', async (req, res) => {
   try {
     const users = await getUsersFromDB();
