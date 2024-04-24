@@ -77,7 +77,6 @@ async function upsertUser(req, res) {
         const err = '[upsertUser] unable to add user.';
         return res.status(404).json({ success: false, data: '', error: err });
       }
-
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
