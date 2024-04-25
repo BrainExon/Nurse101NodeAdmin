@@ -135,7 +135,7 @@ async function upsertUser( req, res) {
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log(`[upsertUsers] new user inserted...`);
+      console.log(`[upsertUsers] new user inserted: ${JSON.stringify(results)}`);
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
