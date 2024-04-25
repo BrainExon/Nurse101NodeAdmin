@@ -358,8 +358,8 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
 //app.post('/add_user', dbAddUser);
-app.get('/find_one', dbFindOne);
-app.get('/find', dbFind);
+app.post('/find_one', dbFindOne);
+app.post('/find', dbFind);
 app.post('/delete', dbDelete);
 app.post('/upsert_image', upsertImage);
 app.get('/get_images', async (req, res) => {
