@@ -215,6 +215,37 @@ async function dbFind (req, res) {
   }
 };
 
+async function dbFindOne (req, res) {
+  const { collection, conditions } = req.body;
+  console.log(`[dbFindOne] collection: ${JSON.stringify(collection)}`);
+  console.log(`[dbFindOne] conditions: ${JSON.stringify(conditions)}`);
+  try {
+    if (!conditions) {
+      const err = '[dbFindOne] null conditions!';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    if (!collection) {
+      const err = '[dbFindOne] null collection!';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    const found = await db.dbFindOne(collection, conditions);
+
+    if (!found) {
+      const err = `[dbFindOne] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    return res.status(200).json({ success: true, data: found, error: '' });
+  } catch (error) {
+    throw new Error(`[dbFindOne] Error: ${error.message}`);
+  }
+};
+
 async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, (error, stdout, stderr) => {
@@ -335,6 +366,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
 //app.post('/add_user', dbAddUser);
+app.get('/find_one', dbFindOne);
 app.get('/find', dbFind);
 app.post('/delete', dbDelete);
 app.post('/upsert_image', upsertImage);
