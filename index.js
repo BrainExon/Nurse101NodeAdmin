@@ -161,15 +161,7 @@ async function dbDelete (req, res) {
       return res.status(404).json({ success: false, data: '', error: err });
     }
 
-    const itemToDelete = await db.dbFindOne(collection, conditions);
-
-    if (!itemToDelete) {
-      const err = `[dbDelete] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
-      console.log(err);
-      return res.status(404).json({ success: false, data: '', error: err });
-    }
-
-    const result = await db.dbDelete(collection, itemToDelete);
+    const result = await db.dbDelete(collection, conditions);
 
     if (!result) {
       const err = `[dbDelete] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
