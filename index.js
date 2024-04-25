@@ -113,11 +113,11 @@ async function upsertUser( req, res) {
       return res.status(400).json({ success: false, data: '', error: err });
     }
 
-    const existingUser = await db.dbFind('users', { userId: user.userId });
+    const existingUser = await db.dbFind('users', { phone: user.phone });
 
     if (Array.isArray(existingUser) && existingUser.length > 0) {
       const updatedUser = { ...existingUser[0], ...user };
-      const updated = await db.dbUpdate('users', { userId: updatedUser.userId }, updatedUser);
+      const updated = await db.dbUpdate('users', { phone: updatedUser.phone }, updatedUser);
 
       if (!updated.modified) {
         const err = '[upsertUser] unable to update user.';
@@ -128,7 +128,7 @@ async function upsertUser( req, res) {
       return res.status(200).json({ success: true, data: updatedUser, error: '' });
     } else {
       await db.dbInsert('users', user);
-      const results = await db.dbFind('users', { userId: user.userId });
+      const results = await db.dbFind('users', { phone: user.phone });
 
       if (!Array.isArray(results) || results.length === 0) {
         const err = '[upsertUser] unable to add user.';
@@ -144,6 +144,76 @@ async function upsertUser( req, res) {
   }
 }
 
+async function dbDelete (req, res) {
+  const { collection, conditions } = req.body;
+  console.log(`[dbDelete] collection: ${JSON.stringify(collection)}`);
+  console.log(`[dbDelete] conditions: ${JSON.stringify(conditions)}`);
+  try {
+    if (!conditions) {
+      const err = '[dbDelete] null conditions!';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    if (!collection) {
+      const err = '[dbDelete] null collection!';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    const itemToDelete = await db.dbFindOne(collection, conditions);
+
+    if (!itemToDelete) {
+      const err = `[dbDelete] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    const result = await db.dbDelete(collection, itemToDelete);
+
+    if (!result) {
+      const err = `[dbDelete] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    const msg = { deleted: true, ...conditions};
+    return res.status(200).json({ success: true, data: msg, error: '' });
+  } catch (error) {
+    throw new Error(`[dbDelete] Error: ${error.message}`);
+  }
+};
+
+async function dbFind (req, res) {
+  const { collection, conditions } = req.body;
+  console.log(`[dbFind] collection: ${JSON.stringify(collection)}`);
+  console.log(`[dbFind] conditions: ${JSON.stringify(conditions)}`);
+  try {
+    if (!conditions) {
+      const err = '[dbFind] null conditions!';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    if (!collection) {
+      const err = '[dbFind] null collection!';
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    const found = await db.dbFind(collection, conditions);
+
+    if (!found) {
+      const err = `[dbFind] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
+      console.log(err);
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+
+    return res.status(200).json({ success: true, data: found, error: '' });
+  } catch (error) {
+    throw new Error(`[dbFind] Error: ${error.message}`);
+  }
+};
 
 async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
@@ -214,7 +284,7 @@ const getFileByName = async (req, res) => {
     fs.readFile(filePath, (err, data) => {
       if (err) {
         console.error('[getFileByName] Error File not found');
-        res.status(404).json({ success: false, data: '', message: 'File not found' });
+        res.status(404).json({ success: false, data: '', error: 'File not found' });
       } else {
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
@@ -265,6 +335,8 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/get_file/:filename', getFileByName);
 app.post('/upload_files', upload.array('files'), uploadFiles);
 //app.post('/add_user', dbAddUser);
+app.get('/find', dbFind);
+app.post('/delete', dbDelete);
 app.post('/upsert_image', upsertImage);
 app.get('/get_images', async (req, res) => {
   try {
@@ -286,8 +358,7 @@ app.get('/get_challenges', async (req, res) => {
   }
 });
 
-//app.post('/add_user', upsertUser);
-app.post('/add_user', upsertUser);
+app.post('/upsert_user', upsertUser);
 app.get('/get_users', async (req, res) => {
   try {
     const users = await dbQuery('users');
