@@ -1,6 +1,8 @@
 # Dependency directories
 node_modules/
 
+toqyn_db/
+toqyn_db.tar
 uploads/
 # Environment variables file
 .env
