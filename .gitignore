@@ -1,6 +1,6 @@
 # Dependency directories
 node_modules/
-
+images_store/
 toqyn_db/
 toqyn_db.tar
 uploads/

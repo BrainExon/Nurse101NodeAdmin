@@ -1,8 +1,5 @@
-const express = require('express');
-const multer = require('multer');
 require('dotenv').config();
 require('dotenv').config();
-const path = require('path');
 const fs = require('fs');
 const {
   readJWKFile,
@@ -14,7 +11,11 @@ require('dotenv').config();
 const main = async() => {
   const myWallet = readJWKFile('./jwk_token.json');
   const arDrive = arDriveFactory({ wallet: myWallet })
-  const folderID = process.env.ARDRIVE_IMAGES_FOLDER_ID;
+  const folderID = process.env.AR_ARDRIVE_IMAGES_FOLDER_ID;
+  if (!myWallet) {
+    console.error(`null wallet`);
+    return;
+  }
   const getFolders = await arDrive.listPublicFolder({
     folderId: folderID
   })

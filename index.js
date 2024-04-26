@@ -18,6 +18,20 @@ async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
 }
 
+function storeFile(filePath, destDir) {
+  const fileName = path.basename(filePath);
+  const destPath = path.join(destDir, fileName);
+
+  fs.copyFile(filePath, destPath, (err) => {
+    if (err) {
+      const e = `[storeFile] Error writing file ${filePath} to ${destPath} error: ${JSON.stringify(err)}`;
+      console.error(e);
+      return {success: false, data: '', error: e}
+    }
+  });
+  console.log(`[storeFile] Successfully wrote file ${filePath} to ${destPath}`);
+  return {success: true, data: `${destPath}/${fileName}`, error: ''}
+}
 const dbQuery = async (key) => {
   console.log(`[dbQuery] key: ${JSON.stringify(key)}`)
   try {
@@ -27,7 +41,48 @@ const dbQuery = async (key) => {
     console.error('Error in [dbQuery]: ', error);
     throw new Error('Error retrieving ' + key + ' from the database');
   }
-};
+}
+
+async function upsertNft(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, data: '', errors: errors.array() });
+    }
+    const nft = req.body;
+    if (!nft) {
+      const err = '[upsertNft] null "nft".';
+      return res.status(404).json({ success: false, data: '', error: err });
+    }
+    /**
+     * Search NFT by "dataTxId" === arweave "tx" blockchain address.
+     * https://viewblock.io/arweave/tx/X83mrjarX8ITbtQTWWk6cGLz6XyJVlQ7HZ29dvbR-Hw
+    */
+    const existingNft = await db.dbFind('nfts', { dataTxId: nft.dataTxId });
+    if (Array.isArray(existingNft) && existingNft.length > 0) {
+      const updatedNft = { ...existingNft[0], ...nft };
+      const updated = await db.dbUpdate('nfts', { dataTxId: nft.dataTxId }, updatedNft);
+      if (!updated.modified) {
+        const err = `[upsertNft] unable to update nft: ${JSON.stringify(nft)}`;
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: updatedNft, error: '' });
+    } else {
+      console.log(`Attempt to Insert nft...`)
+      await db.dbInsert('nfts', nft);
+      const results = await db.dbFind('nfts', { dataTxId: nft.dataTxId });
+      console.log(`[upsertNft] results: ${JSON.stringify(results, null, 2)}`);
+      if (!Array.isArray(results) && results.length === 0) {
+        const err = `[upsertNft] unable to add nft: ${JSON.stringify(nft)}`;
+        return res.status(404).json({ success: false, data: '', error: err });
+      }
+      return res.status(200).json({ success: true, data: results, error: '' });
+    }
+  } catch (error) {
+    const err = `[upsertNft] Internal Server Error: ${JSON.stringify(error)}`;
+    return res.status(500).json({ success: false, data: '', error: `${err}` });
+  }
+}
 
 async function upsertImage(req, res) {
   try {
@@ -124,7 +179,7 @@ async function upsertUser( req, res) {
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log(`[upsertUsers] existing user updated...`);
+      console.log(`\n------\n[upsertUsers] existing user updated ${JSON.stringify(updatedUser)}\n------\n`);
       return res.status(200).json({ success: true, data: updatedUser, error: '' });
     } else {
       await db.dbInsert('users', user);
@@ -174,7 +229,7 @@ async function dbDelete (req, res) {
   } catch (error) {
     throw new Error(`[dbDelete] Error: ${error.message}`);
   }
-};
+}
 
 async function dbFind (req, res) {
   const { collection, conditions } = req.body;
@@ -205,7 +260,7 @@ async function dbFind (req, res) {
   } catch (error) {
     throw new Error(`[dbFind] Error: ${error.message}`);
   }
-};
+}
 
 async function dbFindOne (req, res) {
   const { collection, conditions } = req.body;
@@ -223,20 +278,18 @@ async function dbFindOne (req, res) {
       console.log(err);
       return res.status(404).json({ success: false, data: '', error: err });
     }
-
     const found = await db.dbFindOne(collection, conditions);
-
     if (!found) {
       const err = `[dbFindOne] item: ${JSON.stringify(conditions)} not found in collection: ${collection}!`;
       console.log(err);
       return res.status(404).json({ success: false, data: '', error: err });
     }
-
+    console.log(`\n------\n[dbFindOne] FOUND: ${JSON.stringify(found)}\n------\n`);
     return res.status(200).json({ success: true, data: found, error: '' });
   } catch (error) {
     throw new Error(`[dbFindOne] Error: ${error.message}`);
   }
-};
+}
 
 async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
@@ -261,16 +314,25 @@ const mintNft = async (req, res) => {
   try {
     const file = req.files[0] || 'null';
     const jwk_token = process.env.AR_DRIVE_JWK;
-    const arweave_images_folder_id = process.env.AR_ARWEAVE_IMAGES_FOLDER_ID;
+    const arweave_images_folder_id = process.env.AR_ARDRIVE_IMAGES_FOLDER_ID;
     const ardrive_client = process.env.ARDRIVE_CLIENT;
     const image_path = `${file.destination}${file.originalname}`;
+    if (!jwk_token || !arweave_images_folder_id || !ardrive_client || !image_path) {
+
+    }
     const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
-    return await ardriveUpload(command);
+    const response = await ardriveUpload(command);
+    const store = storeFile(image_path, './images_store')
+    if (store.error) {
+      console.error(`\n-----\n[mintNft][storeFile] error: ${store.error}\n------\n`);
+    }
+    // response already formatted: `{success: true, data: data, error: ''}`
+    return response;
   } catch (error) {
-    console.error('Error in mintNft:', error);
-    throw error;
+    console.error('Error in mintNft:', error.message);
+    return {success: false, data: '', error: error.message};
   }
-};
+}
 
 const deleteFilesInFolder = async (folderPath) => {
   try {
@@ -288,7 +350,7 @@ const deleteFilesInFolder = async (folderPath) => {
     console.error('Error reading directory:', err);
     return { success: false, data: '', error: err };
   }
-};
+}
 
 const getFileByName = async (req, res) => {
   const fileName = req.params.filename;
@@ -315,7 +377,7 @@ const getFileByName = async (req, res) => {
       }
     });
   }
-};
+}
 
 async function uploadFiles(req, res) {
   try {
@@ -381,14 +443,23 @@ app.get('/get_challenges', async (req, res) => {
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
-
+app.post('/upsert_nft', upsertNft);
 app.post('/upsert_user', upsertUser);
 app.get('/get_users', async (req, res) => {
   try {
     const users = await dbQuery('users');
     res.status(200).json({ success: true, data: users, error: '' });
   } catch (error) {
-    console.error('Error in [dbQuery] endpoint:', error);
+    console.error('Error in [dbQuery] endpoint /get_users:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+});
+app.get('/get_nfts', async (req, res) => {
+  try {
+    const nfts = await dbQuery('nfts');
+    res.status(200).json({ success: true, data: nfts, error: '' });
+  } catch (error) {
+    console.error('Error in [dbQuery] endpoint /get_nfts:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
