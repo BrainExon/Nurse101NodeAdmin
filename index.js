@@ -417,13 +417,19 @@ const upload = multer({ storage: storageLocation });
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.get('/get_file/:filename', getFileByName);
-app.post('/upload_files', upload.array('files'), uploadFiles);
-//app.post('/add_user', dbAddUser);
-app.post('/find_one', dbFindOne);
+
+/* post */
 app.post('/find', dbFind);
-app.post('/delete', dbDelete);
+app.post('/find_one', dbFindOne);
 app.post('/upsert_image', upsertImage);
+app.post('/upsert_challenge', upsertChallenge);
+app.post('/upsert_nft', upsertNft);
+app.post('/upsert_user', upsertUser);
+app.post('/upload_files', upload.array('files'), uploadFiles);
+app.post('/delete', dbDelete);
+
+/* get */
+app.get('/get_file/:filename', getFileByName);
 app.get('/get_images', async (req, res) => {
   try {
     const images = await dbQuery('images');
@@ -433,7 +439,6 @@ app.get('/get_images', async (req, res) => {
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
-app.post('/upsert_challenge', upsertChallenge);
 app.get('/get_challenges', async (req, res) => {
   try {
     const challenges = await dbQuery('challenges');
@@ -443,8 +448,6 @@ app.get('/get_challenges', async (req, res) => {
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
-app.post('/upsert_nft', upsertNft);
-app.post('/upsert_user', upsertUser);
 app.get('/get_users', async (req, res) => {
   try {
     const users = await dbQuery('users');
