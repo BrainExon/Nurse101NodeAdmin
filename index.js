@@ -54,14 +54,11 @@ async function upsertNft(req, res) {
       const err = '[upsertNft] null "nft".';
       return res.status(404).json({ success: false, data: '', error: err });
     }
-    /**
-     * Search NFT by "dataTxId" === arweave "tx" blockchain address.
-     * https://viewblock.io/arweave/tx/X83mrjarX8ITbtQTWWk6cGLz6XyJVlQ7HZ29dvbR-Hw
-    */
-    const existingNft = await db.dbFind('nfts', { dataTxId: nft.dataTxId });
+    const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
+
     if (Array.isArray(existingNft) && existingNft.length > 0) {
       const updatedNft = { ...existingNft[0], ...nft };
-      const updated = await db.dbUpdate('nfts', { dataTxId: nft.dataTxId }, updatedNft);
+      const updated = await db.dbUpdate('nfts', { nftId: nft.nftId }, updatedNft);
       if (!updated.modified) {
         const err = `[upsertNft] unable to update nft: ${JSON.stringify(nft)}`;
         return res.status(404).json({ success: false, data: '', error: err });
@@ -70,7 +67,7 @@ async function upsertNft(req, res) {
     } else {
       console.log(`Attempt to Insert nft...`)
       await db.dbInsert('nfts', nft);
-      const results = await db.dbFind('nfts', { dataTxId: nft.dataTxId });
+      const results = await db.dbFind('nfts', { nftId: nft.nftId });
       console.log(`[upsertNft] results: ${JSON.stringify(results, null, 2)}`);
       if (!Array.isArray(results) && results.length === 0) {
         const err = `[upsertNft] unable to add nft: ${JSON.stringify(nft)}`;
@@ -326,6 +323,7 @@ const mintNft = async (req, res) => {
     if (store.error) {
       console.error(`\n-----\n[mintNft][storeFile] error: ${store.error}\n------\n`);
     }
+    console.error(`\n-----\n[mintNft] NFT added to DB: ${store.error}\n------\n`);
     // response already formatted: `{success: true, data: data, error: ''}`
     return response;
   } catch (error) {
