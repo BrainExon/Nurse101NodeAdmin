@@ -4,6 +4,7 @@
  * $`npm start`
  * @type {(function(): function(*, *, *): void)|{}}
  */
+const { v4: uuidv4 } = require('uuid');
 const express = require('express');
 const multer = require('multer');
 const { exec } = require('child_process');
@@ -12,6 +13,7 @@ const path = require('path');
 const { check, validationResult } = require('express-validator');
 require('dotenv').config();
 const db = require('simple-node-jsondbv2');
+const Nft = require('./models/Nft');
 const dbPath = path.join(__dirname, 'toqyn_db');
 
 async function initializeDb (dbPath){
@@ -314,11 +316,29 @@ const mintNft = async (req, res) => {
     const arweave_images_folder_id = process.env.AR_ARDRIVE_IMAGES_FOLDER_ID;
     const ardrive_client = process.env.ARDRIVE_CLIENT;
     const image_path = `${file.destination}${file.originalname}`;
-    if (!jwk_token || !arweave_images_folder_id || !ardrive_client || !image_path) {
-
-    }
     const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
     const response = await ardriveUpload(command);
+    console.error(`\n-----\n[mintNft][ardriveUplaod] response: ${JSON.stringify(response, null, 2)}\n------\n`);
+    if (response.data) {
+      const nft = new Nft({ nftId: uuidv4(), data: response.data });
+      const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
+      if (Array.isArray(existingNft) && existingNft.length > 0) {
+        const updatedNft = { ...existingNft[0], ...nft };
+        const updated = await db.dbUpdate('nfts', { nftId: nft.nftId }, updatedNft);
+        if (!updated.modified) {
+          console.error( `[mintNft] unable to update nft: ${JSON.stringify(nft)}`);
+        }
+        console.error( `[mintNft] updated nft: ${JSON.stringify(nft)}`);
+      } else {
+        console.log(`Attempt to Insert nft...`);
+        await db.dbInsert('nfts', nft);
+        const results = await db.dbFind('nfts', { nftId: nft.nftId });
+        if (!Array.isArray(results) && results.length === 0) {
+          console.error(`[mintNft] unable to add nft: ${JSON.stringify(nft)}`);
+        }
+        console.log(`[mintNft] inserted NFT: ${JSON.stringify(results, null, 2)}`);
+      }
+    }
     const store = storeFile(image_path, './images_store')
     if (store.error) {
       console.error(`\n-----\n[mintNft][storeFile] error: ${store.error}\n------\n`);
