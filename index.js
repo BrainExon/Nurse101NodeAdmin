@@ -152,7 +152,7 @@ async function upsertChallenge(req, res) {
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log('[upsertChallenge] New challenge inserted...');
+      console.log('[upsertChallenge] New challenge inserted: ', JSON.stringify(challenge));
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
