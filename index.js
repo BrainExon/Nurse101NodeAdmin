@@ -21,6 +21,8 @@ async function initializeDb (dbPath){
 }
 
 function storeFile(filePath, destDir) {
+  console.log(`[storeFile] filePath: ${filePath}`);
+  console.log(`[storeFile] destDir: ${destDir}`);
   const fileName = path.basename(filePath);
   const destPath = path.join(destDir, fileName);
 
@@ -369,6 +371,31 @@ const deleteFilesInFolder = async (folderPath) => {
     return { success: false, data: '', error: err };
   }
 }
+const getImagesStore = (req, res) => {
+  const filePath = path.join(__dirname, 'images_store', req.url);
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.write('File not found');
+      res.end();
+    } else {
+      let contentType;
+      if (filePath.endsWith('.jpg')) {
+        contentType = 'image/jpeg';
+      } else if (filePath.endsWith('.png')) {
+        contentType = 'image/png';
+      } else if (filePath.endsWith('.txt')) {
+        contentType = 'text/plain';
+      } else {
+        contentType = 'application/octet-stream';
+      }
+
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.write(data);
+      res.end();
+    }
+  });
+}
 
 const getFileByName = async (req, res) => {
   const fileName = req.params.filename;
@@ -407,7 +434,7 @@ async function uploadFiles(req, res) {
     } else {
       const del = await deleteFilesInFolder('./uploads');
     }
-    console.error(`[mintNft] success: ${JSON.stringify(minted.data)}`);
+    console.log(`[uploadFiles] success: ${JSON.stringify(minted.data)}`);
     res.format({
       json: function(){
         return res.status(200).json({ success: true, data: minted.data, error: '' });
@@ -457,6 +484,15 @@ app.get('/get_images', async (req, res) => {
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
+app.get('/images_store', async (req, res) => {
+  try {
+    const images = await dbQuery('images_store');
+    res.status(200).json({ success: true, data: images, error: '' });
+  } catch (error) {
+    console.error('Error in [dbQuery] endpoint:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+});
 app.get('/get_challenges', async (req, res) => {
   try {
     const challenges = await dbQuery('challenges');
@@ -484,7 +520,17 @@ app.get('/get_nfts', async (req, res) => {
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
+app.get('/image/:imageName', (req, res) => {
+  const imageName = req.params.imageName;
+  const imagePath = path.join(__dirname, 'images_store', imageName);
 
+  res.sendFile(imagePath, (err) => {
+    if (err) {
+      console.error(err);
+      res.status(404).send('Image not found');
+    }
+  });
+});
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ success: false, error: 'Internal Server Error' });
@@ -493,6 +539,7 @@ app.use((req, res, next) => {
   console.log('\n========\nApplication starting\n==========\n');
   next();
 });
+
 (async () => {
   try {
     await initializeDb(dbPath);
