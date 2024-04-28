@@ -15,6 +15,7 @@ require('dotenv').config();
 const db = require('simple-node-jsondbv2');
 const Nft = require('./models/Nft');
 const dbPath = path.join(__dirname, 'toqyn_db');
+const bodyParser = require('body-parser');
 
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
@@ -308,6 +309,8 @@ async function ardriveUpload(cmd) {
 
 const mintNft = async (req, res) => {
   const file = req.files[0];
+  const formData = req.body;
+
   if (!file) {
     console.error('No file uploaded');
     return { success: false, data: '', error: 'No file uploaded' };
@@ -322,7 +325,7 @@ const mintNft = async (req, res) => {
     const response = await ardriveUpload(command);
     console.error(`\n-----\n[mintNft][ardriveUplaod] response: ${JSON.stringify(response, null, 2)}\n------\n`);
     if (response.data) {
-      const nft = new Nft({ nftId: uuidv4(), data: response.data });
+      const nft = new Nft({ ownerId: formData.ownerId, nftId: uuidv4(), data: response.data });
       const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
         const updatedNft = { ...existingNft[0], ...nft };
@@ -425,6 +428,13 @@ const getFileByName = async (req, res) => {
 }
 
 async function uploadFiles(req, res) {
+  /*
+  const file = req.files[0];
+  const formData = req.body;
+  console.log(`[uploadFiles] filename: ${JSON.stringify(file.filename, null, 2)}`);
+  console.log(`[uploadFiles] formData: ${JSON.stringify(formData.ownerId, null, 2)}`);
+
+   */
   try {
     const minted = await mintNft(req, res);
     if (minted.error) {
@@ -461,6 +471,7 @@ const PORT = 3030;
 const upload = multer({ storage: storageLocation });
 const app = express();
 app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.urlencoded({ extended: true }));
 
 /* post */
