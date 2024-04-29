@@ -391,6 +391,15 @@ async function ardriveUpload(cmd) {
   });
 }
 
+async function ardrivePinImage(image_path, file) {
+  console.log(`[ardrivePinImage]: image_path: ${image_path}`);
+  console.log(`[ardrivePinImage]: file: ${JSON.stringify(file)}`);
+  const jwk_token = process.env.AR_DRIVE_JWK;
+  const arweave_images_folder_id = process.env.AR_ARDRIVE_IMAGES_FOLDER_ID;
+  const ardrive_client = process.env.ARDRIVE_CLIENT;
+  const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
+  return await ardriveUpload(command);
+}
 /**
  * {
  *     "success: true",
@@ -444,19 +453,13 @@ const mintNft = async (req, res) => {
   }
   try {
     const file = req.files[0] || 'null';
-    const jwk_token = process.env.AR_DRIVE_JWK;
-    const arweave_images_folder_id = process.env.AR_ARDRIVE_IMAGES_FOLDER_ID;
-    const ardrive_client = process.env.ARDRIVE_CLIENT;
     const image_path = `${file.destination}${file.originalname}`;
-    const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
-    const response = await ardriveUpload(command);
-    console.error(`\n-----\n[mintNft][ardriveUpload] response: ${JSON.stringify(response, null, 2)}\n------\n`);
+    const response = await ardrivePinImage(image_path, file);
     const newNftId = uuidv4();
     const timestamp = Date.now();
     if (response.data) {
       const nft = new Nft({ date: timestamp, ownerId: formData.ownerId, nftId: newNftId, data: response.data });
-      console.log(`\n----\n[mintNft] NFT formData Owner ID: ${JSON.stringify(formData.ownerId, null, 2)}`);
-      console.log(`\n----\n[mintNft] NFT: ${JSON.stringify(nft, null, 2)}`);
+      console.log(`\n----\n[mintNft] NEW NFT: ${JSON.stringify(nft, null, 2)}`);
       const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
         const updatedNft = { ...existingNft[0], ...nft };
@@ -583,24 +586,48 @@ const getFileByName = async (req, res) => {
   }
 }
 
-async function uploadFiles(req, res) {
+async function nftMinterizer(req, res) {
+  console.log(`[nftMinterizer]...`)
   try {
     const minted = await mintNft(req, res);
     if (minted.error) {
-      console.error(`[uploadFiles][mintNft] Error: ${JSON.stringify(minted.error)}`);
+      console.error(`[nftMinterizer][mintNft] Error: ${JSON.stringify(minted.error)}`);
       const del = await deleteFilesInFolder('./uploads');
       return res.status(404).json({ success: false, data: '', error: minted.error });
     } else {
       const del = await deleteFilesInFolder('./uploads');
     }
-    console.log(`[uploadFiles] success: ${JSON.stringify(minted.data)}`);
+    console.log(`[nftMinterizer] success: ${JSON.stringify(minted.data)}`);
     res.format({
       json: function(){
         return res.status(200).json({ success: true, data: minted.data, error: '' });
       }
     });
   } catch (error) {
-    console.error('UnhandledPromiseRejection:', error);
+    console.error('[nftMinterizer] UnhandledPromiseRejection:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+}
+
+async function nftVersionMinterizer(req, res) {
+  console.log(`[nftVersionMinterizer]...`)
+  try {
+    const minted = await mintNft(req, res);
+    if (minted.error) {
+      console.error(`[nftVersionMinterizer][mintNft] Error: ${JSON.stringify(minted.error)}`);
+      const del = await deleteFilesInFolder('./uploads');
+      return res.status(404).json({ success: false, data: '', error: minted.error });
+    } else {
+      const del = await deleteFilesInFolder('./uploads');
+    }
+    console.log(`[nftVersionMinterizer] success: ${JSON.stringify(minted.data)}`);
+    res.format({
+      json: function(){
+        return res.status(200).json({ success: true, data: minted.data, error: '' });
+      }
+    });
+  } catch (error) {
+    console.error('[nftVersionMinterizer] UnhandledPromiseRejection:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 }
@@ -624,12 +651,13 @@ app.use(express.urlencoded({ extended: true }));
 /* post */
 app.post('/find', dbFind);
 app.post('/find_one', dbFindOne);
-app.post('/upsert_image', dbUpsertNftImage);
+app.post('/upsert_nft_image', dbUpsertNftImage);
 app.post('/upsert_user_challenge', dbUpsertUserChallenge);
 app.post('/upsert_challenge', dbUpsertChallenge);
 app.post('/upsert_nft', dbUpsertNft);
 app.post('/upsert_user', dbUpsertUser);
-app.post('/upload_files', upload.array('files'), uploadFiles);
+app.post('/mint_nft_version', nftVersionMinterizer);
+app.post('/mint_nft', upload.array('files'), nftMinterizer);
 app.post('/delete', dbDelete);
 
 /* get */
