@@ -431,9 +431,14 @@ const mintNft = async (req, res) => {
   const file = req.files[0];
   const formData = req.body;
 
+  console.log(`\n----\n[mintNft] NFT formData: ${JSON.stringify(formData, null, 2)}`);
   if (!file) {
     console.error('No file uploaded');
     return { success: false, data: '', error: 'No file uploaded' };
+  }
+  if (!formData.ownerId) {
+    console.error('No ownerId parameter');
+    return { success: false, data: '', error: 'No ownerId parameter' };
   }
   try {
     const file = req.files[0] || 'null';
@@ -445,8 +450,11 @@ const mintNft = async (req, res) => {
     const response = await ardriveUpload(command);
     console.error(`\n-----\n[mintNft][ardriveUpload] response: ${JSON.stringify(response, null, 2)}\n------\n`);
     const newNftId = uuidv4();
+    const timestamp = Date.now();
     if (response.data) {
-      const nft = new Nft({ ownerId: formData.ownerId, nftId: newNftId, data: response.data });
+      const nft = new Nft({ date: timestamp, ownerId: formData.ownerId, nftId: newNftId, data: response.data });
+      console.log(`\n----\n[mintNft] NFT formData Owner ID: ${JSON.stringify(formData.ownerId, null, 2)}`);
+      console.log(`\n----\n[mintNft] NFT: ${JSON.stringify(nft, null, 2)}`);
       const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
         const updatedNft = { ...existingNft[0], ...nft };
@@ -485,7 +493,7 @@ const mintNft = async (req, res) => {
     }
     // response already formatted: `{success: true, data: data, error: ''}`
     const found = await db.dbFind('nfts', { nftId: newNftId });
-    console.log(`\n----\nfound: ${JSON.stringify(found)}\n----\n`);
+    console.log(`\n----\n[mintNft] found: ${JSON.stringify(found)}\n----\n`);
     return {success: true, data: found[0], error: ''}
   } catch (error) {
     console.error('Error in mintNft:', error.message);
