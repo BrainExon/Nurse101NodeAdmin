@@ -509,7 +509,7 @@ const mintNft = async (req, res) => {
     }
     // response already formatted: `{success: true, data: data, error: ''}`
     const found = await db.dbFind('nfts', { nftId: newNftId });
-    console.log(`\n----\n[mintNft] found newly minted NFT: ${JSON.stringify(found)}\n----\n`);
+    console.log(`\n----\n[mintNft] found newly minted NFT: ${JSON.stringify(found[0])}\n----\n`);
     return {success: true, data: found[0], error: ''}
   } catch (error) {
     console.error('Error in mintNft:', error.message);
@@ -625,7 +625,6 @@ async function nftVersionMinterizer(req, res) {
     const timestamp = Date.now();
     if (response.data) {
       const nft = new Nft({ date: timestamp, ownerId: ownerId, nftId: newNftId, data: response.data });
-      console.log(`\n----\n[nftVersionMinterizer] NEW NFT: ${JSON.stringify(nft, null, 2)}`);
       const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
         const updatedNft = { ...existingNft[0], ...nft };
@@ -663,8 +662,8 @@ async function nftVersionMinterizer(req, res) {
     }
     // response already formatted: `{success: true, data: data, error: ''}`
     const found = await db.dbFind('nfts', { nftId: newNftId });
-    console.log(`\n----\n[nftVersionMinterizer] found newly minted NFT\n: ${JSON.stringify(found)}\n----\n`);
-    return {success: true, data: found[0], error: ''}
+    console.log(`\n----\n[nftVersionMinterizer] found newly minted NFT\n: ${JSON.stringify(found[0])}\n----\n`);
+    res.status(200).json({success: true, data: found[0], error: ''});
   } catch (error) {
     console.error('[nftVersionMinterizer] UnhandledPromiseRejection:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
