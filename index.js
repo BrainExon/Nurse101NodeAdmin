@@ -431,7 +431,9 @@ const mintNft = async (req, res) => {
   const file = req.files[0];
   const formData = req.body;
 
+  console.log(`\n----\n[mintNft] NFT file: ${JSON.stringify(file, null, 2)}`);
   console.log(`\n----\n[mintNft] NFT formData: ${JSON.stringify(formData, null, 2)}`);
+  // return { success: true, data: { file:file, formData: formData }, error: 'No file uploaded' };
   if (!file) {
     console.error('No file uploaded');
     return { success: false, data: '', error: 'No file uploaded' };
@@ -478,9 +480,18 @@ const mintNft = async (req, res) => {
       console.error(`\n-----\n[mintNft][storeFile] error: ${store.error}\n------\n`);
     }
     console.error(`\n-----\n[mintNft] NFT added to DB: ${store.error}\n------\n`);
+    /**
+    * this.imageId = imageId;
+    * this.nftId = nftId;
+    * this.name = name;
+    * this.date = date;
+    * this.owner = owner;
+    * this.url = url;
+    * this.version = version;
+     */
     const image = new nftImage(
       uuidv4(),
-      response.data.nftId,
+      newNftId,
       file.originalname,
       Date.now(),
       formData.ownerId,
@@ -623,7 +634,7 @@ app.post('/delete', dbDelete);
 
 /* get */
 app.get('/get_file/:filename', getFileByName);
-app.get('/get_images', async (req, res) => {
+app.get('/get_nft_images', async (req, res) => {
   try {
     const images = await dbQuery('nft_images');
     res.status(200).json({ success: true, data: images, error: '' });
