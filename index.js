@@ -16,6 +16,7 @@ const db = require('simple-node-jsondbv2');
 const Nft = require('./models/Nft');
 const dbPath = path.join(__dirname, 'toqyn_db');
 const bodyParser = require('body-parser');
+const nftImage = require("./models/nftImage");
 
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
@@ -37,18 +38,50 @@ function storeFile(filePath, destDir) {
   console.log(`[storeFile] Successfully wrote file ${filePath} to ${destPath}`);
   return {success: true, data: `${destPath}/${fileName}`, error: ''}
 }
+
 const dbQuery = async (key) => {
   console.log(`[dbQuery] key: ${JSON.stringify(key)}`)
   try {
-    const response = await db.dbFind(key, {});
-    return response;
+    return await db.dbFind(key, {});
   } catch (error) {
     console.error('Error in [dbQuery]: ', error);
     throw new Error('Error retrieving ' + key + ' from the database');
   }
 }
 
-async function upsertNft(req, res) {
+async function upsertImage(image) {
+  try {
+    if (!image) {
+      const err = '[upsertImage] null "NftImage".';
+      return { success: false, data: '', error: err };
+    }
+    const existingImage = await db.dbFind('nft_images', { imageId: image.imageId });
+    if (Array.isArray(existingImage) && existingImage.length > 0) {
+      const updatedImage = { ...existingImage[0], ...image };
+      updatedImage.version ? updatedImage.version = updatedImage.version + 1 : 1;
+      const updated = await db.dbUpdate('nft_images', { imageId: image.imageId }, updatedImage);
+      if (!updated.modified) {
+        const err = '[upsertImage] unable to update image.';
+        return { success: false, data: '', error: err };
+      }
+      return { success: true, data: updatedImage, error: '' };
+    } else {
+      image.version = 1;
+      await db.dbInsert('nft_images', image);
+      const results = await db.dbFind('nft_images', { imageId: image.imageId });
+      console.log(`[upsertImage] results: ${JSON.stringify(results, null, 2)}`);
+      if (!Array.isArray(results) && results.length === 0) {
+        const err = '[upsertImage] unable to add nft image.';
+        return { success: false, data: '', error: err };
+      }
+      return { success: true, data: results, error: '' };
+    }
+  } catch (error) {
+    const err = `[upsertImage] Internal Server Error: ${JSON.stringify(error)}`;
+    return { success: false, data: '', error: `${err}` };
+  }
+}
+async function dbUpsertNft(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -56,7 +89,7 @@ async function upsertNft(req, res) {
     }
     const nft = req.body;
     if (!nft) {
-      const err = '[upsertNft] null "nft".';
+      const err = '[dbUpsertNft] null "nft".';
       return res.status(404).json({ success: false, data: '', error: err });
     }
     const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
@@ -65,7 +98,7 @@ async function upsertNft(req, res) {
       const updatedNft = { ...existingNft[0], ...nft };
       const updated = await db.dbUpdate('nfts', { nftId: nft.nftId }, updatedNft);
       if (!updated.modified) {
-        const err = `[upsertNft] unable to update nft: ${JSON.stringify(nft)}`;
+        const err = `[dbUpsertNft] unable to update nft: ${JSON.stringify(nft)}`;
         return res.status(404).json({ success: false, data: '', error: err });
       }
       return res.status(200).json({ success: true, data: updatedNft, error: '' });
@@ -73,20 +106,20 @@ async function upsertNft(req, res) {
       console.log(`Attempt to Insert nft...`)
       await db.dbInsert('nfts', nft);
       const results = await db.dbFind('nfts', { nftId: nft.nftId });
-      console.log(`[upsertNft] results: ${JSON.stringify(results, null, 2)}`);
+      console.log(`[dbUpsertNft] results: ${JSON.stringify(results, null, 2)}`);
       if (!Array.isArray(results) && results.length === 0) {
-        const err = `[upsertNft] unable to add nft: ${JSON.stringify(nft)}`;
+        const err = `[dbUpsertNft] unable to add nft: ${JSON.stringify(nft)}`;
         return res.status(404).json({ success: false, data: '', error: err });
       }
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
-    const err = `[upsertNft] Internal Server Error: ${JSON.stringify(error)}`;
+    const err = `[dbUpsertNft] Internal Server Error: ${JSON.stringify(error)}`;
     return res.status(500).json({ success: false, data: '', error: `${err}` });
   }
 }
 
-async function upsertImage(req, res) {
+async function dbUpsertNftImage(req, res) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -94,40 +127,25 @@ async function upsertImage(req, res) {
     }
     const image = req.body;
     if (!image) {
-      const err = '[upsertImage] null "Image".';
+      const err = '[dbUpsertNftImage] null "NftImage".';
       return res.status(404).json({ success: false, data: '', error: err });
     }
-    const existingImage = await db.dbFind('images', { imageId: image.imageId });
-    if (Array.isArray(existingImage) && existingImage.length > 0) {
-      const updatedImage = { ...existingImage[0], ...image };
-      const updated = await db.dbUpdate('images', { imageId: image.imageId }, updatedImage);
-      if (!updated.modified) {
-        const err = '[upsertImage] unable to update image.';
-        return res.status(404).json({ success: false, data: '', error: err });
-      }
-      return res.status(200).json({ success: true, data: updatedImage, error: '' });
-    } else {
-      console.log(`Attempt to Insert image...`)
-      await db.dbInsert('images', image);
-      const results = await db.dbFind('images', { imageId: image.imageId });
-      console.log(`[upsertImage] results: ${JSON.stringify(results, null, 2)}`);
-      if (!Array.isArray(results) && results.length === 0) {
-        const err = '[upsertImage] unable to add image.';
-        return res.status(404).json({ success: false, data: '', error: err });
-      }
-      return res.status(200).json({ success: true, data: results, error: '' });
+    const response = await upsertImage(image);
+    if (response.error) {
+      return res.status(404).json({ success: false, data: '', error: response.error });
     }
+    return res.status(200).json({ success: true, data: response.data, error: '' });
   } catch (error) {
-    const err = `[upsertImage] Internal Server Error: ${JSON.stringify(error)}`;
+    const err = `[dbUpsertNftImage] Internal Server Error: ${JSON.stringify(error)}`;
     return res.status(500).json({ success: false, data: '', error: `${err}` });
   }
 }
 
-async function upsertChallenge(req, res) {
+async function dbUpsertChallenge(req, res) {
   try {
     const challenge = req.body;
     if (!challenge) {
-      const err = '[upsertChallenge] Null challenge.';
+      const err = '[dbUpsertChallenge] Null challenge.';
       return res.status(400).json({ success: false, data: '', error: err });
     }
 
@@ -138,35 +156,75 @@ async function upsertChallenge(req, res) {
       const updated = await db.dbUpdate('challenges', { chId: updatedChallenge.chId }, updatedChallenge);
 
       if (!updated.modified) {
-        const err = '[upsertChallenge] Unable to update challenge.';
+        const err = '[dbUpsertChallenge] Unable to update challenge.';
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log('[upsertChallenge] Existing challenge updated...');
+      console.log('[dbUpsertChallenge] Existing challenge updated...');
       return res.status(200).json({ success: true, data: updatedChallenge, error: '' });
     } else {
       await db.dbInsert('challenges', challenge);
       const results = await db.dbFind('challenges', { chId: challenge.chId });
 
       if (!Array.isArray(results) || results.length === 0) {
-        const err = '[upsertChallenge] Unable to add challenge.';
+        const err = '[dbUpsertChallenge] Unable to add challenge.';
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log('[upsertChallenge] New challenge inserted: ', JSON.stringify(challenge));
+      console.log('[dbUpsertChallenge] New challenge inserted: ', JSON.stringify(challenge));
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
-    const err = `[upsertChallenge] Internal Server Error: ${error.message}`;
+    const err = `[dbUpsertChallenge] Internal Server Error: ${error.message}`;
     return res.status(500).json({ success: false, data: '', error: err });
   }
 }
 
-async function upsertUser( req, res) {
+async function dbUpsertUserChallenge(req, res) {
+  try {
+    const userChallenge = req.body;
+    if (!userChallenge) {
+      const err = '[dbUpsertUserChallenge] Null userChallenge.';
+      return res.status(400).json({ success: false, data: '', error: err });
+    }
+
+    const existingChallenge = await db.dbFind('user_challenges', { userChallengeId: userChallenge.userChallengeId });
+
+    if (Array.isArray(existingChallenge) && existingChallenge.length > 0) {
+      const updatedUserChallenge = { ...existingChallenge[0], ...userChallenge };
+      const updated = await db.dbUpdate('challenges', {
+        userChallengeId: updatedUserChallenge.userChallengeId },
+        updatedUserChallenge
+      );
+      if (!updated.modified) {
+        const err = '[dbUpsertUserChallenge] Unable to update user challenge.';
+        return res.status(400).json({ success: false, data: '', error: err });
+      }
+      console.log('[dbUpsertUserChallenge] Existing user challenge updated...');
+      return res.status(200).json({ success: true, data: updatedUserChallenge, error: '' });
+    } else {
+      await db.dbInsert('user_challenges', userChallenge);
+      const results = await db.dbFind('user_challenges', { userChallengeId: userChallenge.userChallengeId });
+
+      if (!Array.isArray(results) || results.length === 0) {
+        const err = '[dbUpsertUserChallenge] Unable to add user challenge.';
+        return res.status(400).json({ success: false, data: '', error: err });
+      }
+
+      console.log('[dbUpsertUserChallenge] New user challenge inserted: ', JSON.stringify(userChallenge));
+      return res.status(200).json({ success: true, data: results, error: '' });
+    }
+  } catch (error) {
+    const err = `[dbUpsertUserChallenge] Internal Server Error: ${error.message}`;
+    return res.status(500).json({ success: false, data: '', error: err });
+  }
+}
+
+async function dbUpsertUser( req, res) {
   try {
     const user = req.body;
     if (!user) {
-      const err = '[upsertUser] null User request parameter.';
+      const err = '[dbUpsertUser] null User request parameter.';
       return res.status(400).json({ success: false, data: '', error: err });
     }
 
@@ -177,26 +235,26 @@ async function upsertUser( req, res) {
       const updated = await db.dbUpdate('users', { phone: updatedUser.phone }, updatedUser);
 
       if (!updated.modified) {
-        const err = '[upsertUser] unable to update user.';
+        const err = '[dbUpsertUser] unable to update user.';
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log(`\n------\n[upsertUsers] existing user updated ${JSON.stringify(updatedUser)}\n------\n`);
+      console.log(`\n------\n[dbUpsertUsers] existing user updated ${JSON.stringify(updatedUser)}\n------\n`);
       return res.status(200).json({ success: true, data: updatedUser, error: '' });
     } else {
       await db.dbInsert('users', user);
       const results = await db.dbFind('users', { phone: user.phone });
 
       if (!Array.isArray(results) || results.length === 0) {
-        const err = '[upsertUser] unable to add user.';
+        const err = '[dbUpsertUser] unable to add user.';
         return res.status(400).json({ success: false, data: '', error: err });
       }
 
-      console.log(`[upsertUsers] new user inserted: ${JSON.stringify(results)}`);
+      console.log(`[dbUpsertUsers] new user inserted: ${JSON.stringify(results)}`);
       return res.status(200).json({ success: true, data: results, error: '' });
     }
   } catch (error) {
-    const err = `[upsertUser] Internal Server Error: ${error.message}`;
+    const err = `[dbUpsertUser] Internal Server Error: ${error.message}`;
     return res.status(500).json({ success: false, data: '', error: err });
   }
 }
@@ -293,6 +351,32 @@ async function dbFindOne (req, res) {
   }
 }
 
+/**
+ * create a versioned image on the filesystem
+ * @param filename
+ * @returns {Promise<unknown>}
+ */
+async function createVersionedImage(filename) {
+  const versionRegex = /_v(\d+)\./;
+  const match = filename.match(versionRegex);
+  let versionNumber = 1;
+  if (match) {
+    versionNumber = parseInt(match[1]) + 1;
+  }
+  const fileExtension = path.extname(filename);
+  const newFilename = match ? filename.replace(versionRegex, `_v${versionNumber}.`) : `${filename.replace(fileExtension, '')}_v1${fileExtension}`;
+  const originalFilePath = path.join(__dirname, 'images_store', filename);
+  const versionedFilePath = path.join(__dirname, 'images_store', newFilename);
+  return new Promise((resolve, reject) => {
+    fs.copyFile(originalFilePath, versionedFilePath, (err) => {
+      if (err) {
+        reject({ success: false, data: '', error: `[createVersionedImage] unable to create versioned image file: ${versionedFilePath}` });
+      } else {
+        resolve({ success: true, data: versionedFilePath, error: '' });
+      }
+    });
+  });
+}
 async function ardriveUpload(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, (error, stdout, stderr) => {
@@ -307,6 +391,42 @@ async function ardriveUpload(cmd) {
   });
 }
 
+/**
+ * {
+ *     "success: true",
+ *      "data":{
+ *             "_id": "662f0a891ee58d7e03c75650",
+ *             "ownerId": "dc6ddf89-37fc-4224-a0d7-5c03ae4353e7",
+ *             "nftId": "be9f9847-5342-449b-9d3d-48e32b8305c2",
+ *             "created": [
+ *                 {
+ *                     "type": "file",
+ *                     "entityName": "1000000018.jpg",
+ *                     "entityId": "0a13c707-303b-4ff1-8a55-343fd4bd270a",
+ *                     "dataTxId": "gEUXVeqXH_NNNUl-FrY22U436dBjCqNJ-lMv_m86d34",
+ *                     "metadataTxId": "wjwyZlIdHOzR8dJdkqMAvI652GRpGCuk5zpjKrmLq7M",
+ *                     "bundledIn": "M1vGVtMkW-SlsAZa5HYFwnbolMOnkQThSkxRTIuCjCM",
+ *                     "sourceUri": "file:///Users/chellax/Projects/Express/functions/uploads/1000000018.jpg"
+ *                 },
+ *                 {
+ *                     "type": "bundle",
+ *                     "bundleTxId": "M1vGVtMkW-SlsAZa5HYFwnbolMOnkQThSkxRTIuCjCM"
+ *                 }
+ *             ],
+ *             "tips": [
+ *                 {
+ *                     "recipient": "8s8ABYc_1oDZ553UKXLIzsUie48xc6V88Q1hPtky4C8",
+ *                     "txId": "M1vGVtMkW-SlsAZa5HYFwnbolMOnkQThSkxRTIuCjCM",
+ *                     "winston": "27753169"
+ *                 }
+ *             ],
+ *             "fees": {
+ *                 "M1vGVtMkW-SlsAZa5HYFwnbolMOnkQThSkxRTIuCjCM": "185021129"
+ *             }
+ *         }
+ *     "error": ""
+ * }
+ */
 const mintNft = async (req, res) => {
   const file = req.files[0];
   const formData = req.body;
@@ -323,9 +443,10 @@ const mintNft = async (req, res) => {
     const image_path = `${file.destination}${file.originalname}`;
     const command = `${ardrive_client} upload-file --wallet-file ${jwk_token} --parent-folder-id "${arweave_images_folder_id}" --local-path ${image_path} --dest-file-name "${file.filename}"`;
     const response = await ardriveUpload(command);
-    console.error(`\n-----\n[mintNft][ardriveUplaod] response: ${JSON.stringify(response, null, 2)}\n------\n`);
+    console.error(`\n-----\n[mintNft][ardriveUpload] response: ${JSON.stringify(response, null, 2)}\n------\n`);
+    const newNftId = uuidv4();
     if (response.data) {
-      const nft = new Nft({ ownerId: formData.ownerId, nftId: uuidv4(), data: response.data });
+      const nft = new Nft({ ownerId: formData.ownerId, nftId: newNftId, data: response.data });
       const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
         const updatedNft = { ...existingNft[0], ...nft };
@@ -349,13 +470,29 @@ const mintNft = async (req, res) => {
       console.error(`\n-----\n[mintNft][storeFile] error: ${store.error}\n------\n`);
     }
     console.error(`\n-----\n[mintNft] NFT added to DB: ${store.error}\n------\n`);
+    const image = new nftImage(
+      uuidv4(),
+      response.data.nftId,
+      file.originalname,
+      Date.now(),
+      formData.ownerId,
+      image_path,
+      '',
+    );
+    const imgResponse = await upsertImage(image);
+    if (imgResponse.error) {
+      return res.status(404).json({ success: false, data: '', error: imgResponse.error });
+    }
     // response already formatted: `{success: true, data: data, error: ''}`
-    return response;
+    const found = await db.dbFind('nfts', { nftId: newNftId });
+    console.log(`\n----\nfound: ${JSON.stringify(found)}\n----\n`);
+    return {success: true, data: found[0], error: ''}
   } catch (error) {
     console.error('Error in mintNft:', error.message);
     return {success: false, data: '', error: error.message};
   }
 }
+
 
 const deleteFilesInFolder = async (folderPath) => {
   try {
@@ -428,13 +565,6 @@ const getFileByName = async (req, res) => {
 }
 
 async function uploadFiles(req, res) {
-  /*
-  const file = req.files[0];
-  const formData = req.body;
-  console.log(`[uploadFiles] filename: ${JSON.stringify(file.filename, null, 2)}`);
-  console.log(`[uploadFiles] formData: ${JSON.stringify(formData.ownerId, null, 2)}`);
-
-   */
   try {
     const minted = await mintNft(req, res);
     if (minted.error) {
@@ -461,8 +591,6 @@ const storageLocation = multer.diskStorage({
     callback(null, 'uploads/');
   },
   filename: function (req, file, callback) {
-    // const cleanName = replaceStringByKey(file.originalname, 'rn_image_picker_lib_temp_', '');
-    //console.log('[storageLocation] cleanName: ', JSON.stringify(cleanName));
     callback(null, file.originalname);
   }
 });
@@ -477,10 +605,11 @@ app.use(express.urlencoded({ extended: true }));
 /* post */
 app.post('/find', dbFind);
 app.post('/find_one', dbFindOne);
-app.post('/upsert_image', upsertImage);
-app.post('/upsert_challenge', upsertChallenge);
-app.post('/upsert_nft', upsertNft);
-app.post('/upsert_user', upsertUser);
+app.post('/upsert_image', dbUpsertNftImage);
+app.post('/upsert_user_challenge', dbUpsertUserChallenge);
+app.post('/upsert_challenge', dbUpsertChallenge);
+app.post('/upsert_nft', dbUpsertNft);
+app.post('/upsert_user', dbUpsertUser);
 app.post('/upload_files', upload.array('files'), uploadFiles);
 app.post('/delete', dbDelete);
 
@@ -488,10 +617,10 @@ app.post('/delete', dbDelete);
 app.get('/get_file/:filename', getFileByName);
 app.get('/get_images', async (req, res) => {
   try {
-    const images = await dbQuery('images');
+    const images = await dbQuery('nft_images');
     res.status(200).json({ success: true, data: images, error: '' });
   } catch (error) {
-    console.error('Error in [dbQuery] endpoint:', error);
+    console.error('Error in /get_images endpoint:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
@@ -500,7 +629,7 @@ app.get('/images_store', async (req, res) => {
     const images = await dbQuery('images_store');
     res.status(200).json({ success: true, data: images, error: '' });
   } catch (error) {
-    console.error('Error in [dbQuery] endpoint:', error);
+    console.error('Error in /images_store endpoint:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
@@ -509,7 +638,16 @@ app.get('/get_challenges', async (req, res) => {
     const challenges = await dbQuery('challenges');
     res.status(200).json({ success: true, data: challenges, error: '' });
   } catch (error) {
-    console.error('Error in [dbQuery] endpoint:', error);
+    console.error('Error in /get_challenges endpoint:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+});
+app.get('/get_user_challenges', async (req, res) => {
+  try {
+    const userChallenges = await dbQuery('user_challenges');
+    res.status(200).json({ success: true, data: userChallenges, error: '' });
+  } catch (error) {
+    console.error('Error in  /get_user_challenges endpoint:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
@@ -518,7 +656,7 @@ app.get('/get_users', async (req, res) => {
     const users = await dbQuery('users');
     res.status(200).json({ success: true, data: users, error: '' });
   } catch (error) {
-    console.error('Error in [dbQuery] endpoint /get_users:', error);
+    console.error('Error in /get_users endpoint /get_users:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
@@ -527,7 +665,7 @@ app.get('/get_nfts', async (req, res) => {
     const nfts = await dbQuery('nfts');
     res.status(200).json({ success: true, data: nfts, error: '' });
   } catch (error) {
-    console.error('Error in [dbQuery] endpoint /get_nfts:', error);
+    console.error('Error in /get_nfts endpoint /get_nfts:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
@@ -538,10 +676,26 @@ app.get('/image/:imageName', (req, res) => {
   res.sendFile(imagePath, (err) => {
     if (err) {
       console.error(err);
-      res.status(404).send('Image not found');
+      res.status(404).send('NftImage not found');
     }
   });
 });
+app.get('/version_image', async (req, res) => {
+  const { filename } = req.query;
+  console.log(`\n-----\n[version_image] filename: ${JSON.stringify(filename)}\n----\n`);
+  if (!filename) {
+    return res.status(400).json({ success: false, data: '', error: 'Error: Filename parameter is required' });
+  }
+
+  try {
+    const result = await createVersionedImage(filename);
+    console.log(`\n-----\n[createVersionedImage] result: ${JSON.stringify(result)}\n----\n`);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, data: '', error: 'Error creating versioned image' });
+  }
+});
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ success: false, error: 'Internal Server Error' });
