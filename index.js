@@ -18,6 +18,7 @@ const Nft = require('./models/Nft');
 const dbPath = path.join(__dirname, 'toqyn_db');
 const nftImage = require("./models/nftImage");
 const QRCode = require('qrcode');
+const {isNullEmpty} = require("./utilities/util");
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
 }
@@ -679,24 +680,21 @@ async function nftVersionMinterizer(req, res) {
 }
 
 
-
 const qrCodeGenerate = async (req, res) => {
   const url = req.body.url;
+  if (isNullEmpty(url)) {
+    res.status(400).json({ success: false, data: '', error: `Error generating QR code: "url" parameter is null.` });
+  }
   const directory = './qrcodes';
-  const sanitizedUrl = url.replace(/[^a-zA-Z0-9]/g, ''); // Remove special characters from the URL
   const parsedPath = path.parse(url);
   const filenameWithoutExtension = parsedPath.name;
   const filePath = path.join(directory, `${filenameWithoutExtension}.png`);
-  console.log(`QR code filepath: ${filePath}`);
-
   if (!fs.existsSync(directory)) {
     console.log(`QR code directory ${directory} does not exist.`);
     fs.mkdirSync(directory, { recursive: true });
   }
-
   try {
     await QRCode.toFile(filePath, url);
-    console.log(`QR code ${filePath} generated successfully!`);
     res.status(200).json({ success: true, data: filePath, error: null });
   } catch (err) {
     console.error(err);

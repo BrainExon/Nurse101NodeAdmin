@@ -51,12 +51,16 @@ const replaceStringByKey = (inputString, key, replacement) => {
   console.log('[replaceStringByKey] clean: ', JSON.stringify(clean));
   return clean;
 };
+function isNullEmpty(value) {
+  return value === undefined || value === null || value === '';
+}
 
 module.exports = {
   getEntityIdByType,
   writeFile,
   readFile,
   cleanString,
+  isNullEmpty,
   isValidJSON,
   replaceStringByKey,
 };
