@@ -5,6 +5,7 @@
  * @type {(function(): function(*, *, *): void)|{}}
  */
 const { v4: uuidv4 } = require('uuid');
+const bodyParser = require('body-parser');
 const express = require('express');
 const multer = require('multer');
 const { exec } = require('child_process');
@@ -15,9 +16,8 @@ require('dotenv').config();
 const db = require('simple-node-jsondbv2');
 const Nft = require('./models/Nft');
 const dbPath = path.join(__dirname, 'toqyn_db');
-const bodyParser = require('body-parser');
 const nftImage = require("./models/nftImage");
-
+const QRCode = require('qrcode');
 async function initializeDb (dbPath){
   return await db.dbInit(dbPath);
 }
@@ -320,6 +320,14 @@ async function dbFind (req, res) {
   } catch (error) {
     throw new Error(`[dbFind] Error: ${error.message}`);
   }
+}
+
+async function verifyChallenge(req, res) {
+  const challenge = req.body.challenge;
+  const participant = req.body.participant;
+  console.log(`[verifyChallenge] challenge: ${JSON.stringify(challenge)}`);
+  const found = `challenge: ${challenge} participant: ${participant}`;
+  return res.status(200).json({ success: true, data: found, error: '' });
 }
 
 async function dbFindOne (req, res) {
@@ -670,6 +678,32 @@ async function nftVersionMinterizer(req, res) {
   }
 }
 
+
+
+const qrCodeGenerate = async (req, res) => {
+  const url = req.body.url;
+  const directory = './qrcodes';
+  const sanitizedUrl = url.replace(/[^a-zA-Z0-9]/g, ''); // Remove special characters from the URL
+  const parsedPath = path.parse(url);
+  const filenameWithoutExtension = parsedPath.name;
+  const filePath = path.join(directory, `${filenameWithoutExtension}.png`);
+  console.log(`QR code filepath: ${filePath}`);
+
+  if (!fs.existsSync(directory)) {
+    console.log(`QR code directory ${directory} does not exist.`);
+    fs.mkdirSync(directory, { recursive: true });
+  }
+
+  try {
+    await QRCode.toFile(filePath, url);
+    console.log(`QR code ${filePath} generated successfully!`);
+    res.status(200).json({ success: true, data: filePath, error: null });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ success: false, data: '', error: err });
+  }
+};
+
 const storageLocation = multer.diskStorage({
   destination: function (req, file, callback) {
     callback(null, 'uploads/');
@@ -679,14 +713,28 @@ const storageLocation = multer.diskStorage({
   }
 });
 
-const PORT = 3030;
+const qrcodeStorage = multer.diskStorage({
+  destination: function (req, file, callback) {
+    callback(null, 'qrcodes/');
+  },
+  filename: function (req, file, callback) {
+    callback(null, file.originalname);
+  }
+});
+
+
 const upload = multer({ storage: storageLocation });
+const qrcodeUpload = multer({ storage: qrcodeStorage });
+
+const PORT = 3030;
 const app = express();
-app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+//app.use(express.urlencoded({ extended: true }));
 
 /* post */
+app.post('/qr_code', qrcodeUpload.none(), qrCodeGenerate);
+app.post('/verify', upload.none(), verifyChallenge);
 app.post('/find', dbFind);
 app.post('/find_one', dbFindOne);
 app.post('/upsert_nft_image', dbUpsertNftImage);
@@ -765,6 +813,17 @@ app.get('/image/:imageName', (req, res) => {
     }
   });
 });
+app.get('/qrcodes/:imageName', (req, res) => {
+  const imageName = req.params.imageName;
+  const imagePath = path.join(__dirname, 'qrcodes', imageName);
+
+  res.sendFile(imagePath, (err) => {
+    if (err) {
+      console.error(err);
+      res.status(404).send('QR Code not found');
+    }
+  });
+});
 app.get('/version_image', async (req, res) => {
   const { filename } = req.query;
   if (!filename) {
@@ -779,7 +838,6 @@ app.get('/version_image', async (req, res) => {
     res.status(500).json({ success: false, data: '', error: 'Error creating versioned image' });
   }
 });
-
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ success: false, error: 'Internal Server Error' });
