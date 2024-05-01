@@ -145,12 +145,16 @@ async function dbUpsertNftImage(req, res) {
 async function dbUpsertChallenge(req, res) {
   try {
     const challenge = req.body;
+    console.log('\n====\n');
+    console.log('[dbUpsertChallenge] challenge: ', JSON.stringify(challenge));
+    console.log('\n====\n');
     if (!challenge) {
       const err = '[dbUpsertChallenge] Null challenge.';
       return res.status(400).json({ success: false, data: '', error: err });
     }
 
     const existingChallenge = await db.dbFind('challenges', { chId: challenge.chId });
+    console.log('[dbUpsertChallenge] Existing Challenge: ', JSON.stringify(existingChallenge));
 
     if (Array.isArray(existingChallenge) && existingChallenge.length > 0) {
       const updatedChallenge = { ...existingChallenge[0], ...challenge };
@@ -327,8 +331,26 @@ async function verifyChallenge(req, res) {
   const challenge = req.body.challenge;
   const participant = req.body.participant;
   console.log(`[verifyChallenge] challenge: ${JSON.stringify(challenge)}`);
-  const found = `challenge: ${challenge} participant: ${participant}`;
-  return res.status(200).json({ success: true, data: found, error: '' });
+  console.log(`[verifyChallenge] participant: ${JSON.stringify(participant)}`);
+  const foundChallenge = await db.dbFindOne('challenges', {chId: challenge});
+  console.log(`[verifyChallenge] Found Challenge: ${JSON.stringify(foundChallenge, null, 2)}`);
+  const foundUser = foundChallenge.users.find(item => item === participant);
+  if (!foundUser) {
+    console.log(`Error: unable to find user with id  "${participant}" in challenge with ID: "${challenge}"`);
+    return res.status(400).json({ success: false, data: '', error: `Error: unable to find user with id  "${participant}" in challenge with ID: "${challenge}"` });
+  }
+  console.log(`[verifyChallenge] Found User: ${JSON.stringify(foundUser, null, 2)}`);
+  //const found = `challenge: ${challenge} participant: ${participant}`;
+  const foundUserChallenge = await db.dbFindOne('user_challenges', {chId: challenge, userId: participant});
+  if (!foundUserChallenge) {
+    return res.status(400).json({ success: false, data: '', error: `Error: unable to find the user's challenge with user id: "${participant}" and challenge ID: "${challenge}"` });
+  }
+  foundUserChallenge.status='verified';
+  const updated = await db.dbUpdate('user_challenges', { _id: foundUserChallenge._id }, foundUserChallenge);
+  if (!updated) {
+    return res.status(400).json({ success: false, data: '', error: `Error: unable to updated the user's challenge status to active with user ID: "${participant}" and challenge ID: "${challenge}"` });
+  }
+  return res.status(200).json({ success: true, data: foundUserChallenge, error: '' });
 }
 
 async function dbFindOne (req, res) {
@@ -341,7 +363,6 @@ async function dbFindOne (req, res) {
       console.log(err);
       return res.status(404).json({ success: false, data: '', error: err });
     }
-
     if (!collection) {
       const err = '[dbFindOne] null collection!';
       console.log(err);
