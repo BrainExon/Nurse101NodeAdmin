@@ -490,7 +490,14 @@ const mintNft = async (req, res) => {
     const newNftId = uuidv4();
     const timestamp = Date.now();
     if (response.data) {
-      const nft = new Nft({ date: timestamp, ownerId: formData.ownerId, nftId: newNftId, data: response.data });
+      const nft = new Nft( {
+        date: timestamp,
+        ownerId: formData.ownerId,
+        nftId: newNftId,
+        data: response.data,
+        name: formData.name,
+        description: formData.description
+      });
       console.log(`\n----\n[mintNft] NEW NFT: ${JSON.stringify(nft, null, 2)}`);
       const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
