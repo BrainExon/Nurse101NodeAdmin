@@ -193,12 +193,12 @@ async function dbUpsertUserChallenge(req, res) {
       return res.status(400).json({ success: false, data: '', error: err });
     }
 
-    const existingChallenge = await db.dbFind('user_challenges', { userChallengeId: userChallenge.userChallengeId });
+    const existingChallenge = await db.dbFind('user_challenges', { chId: userChallenge.chId });
 
     if (Array.isArray(existingChallenge) && existingChallenge.length > 0) {
       const updatedUserChallenge = { ...existingChallenge[0], ...userChallenge };
       const updated = await db.dbUpdate('user_challenges', {
-        userChallengeId: updatedUserChallenge.userChallengeId },
+        chId: updatedUserChallenge.chId },
         updatedUserChallenge
       );
       if (!updated.modified) {
@@ -209,7 +209,7 @@ async function dbUpsertUserChallenge(req, res) {
       return res.status(200).json({ success: true, data: updatedUserChallenge, error: '' });
     } else {
       await db.dbInsert('user_challenges', userChallenge);
-      const results = await db.dbFind('user_challenges', { userChallengeId: userChallenge.userChallengeId });
+      const results = await db.dbFind('user_challenges', { chId: userChallenge.chId });
 
       if (!Array.isArray(results) || results.length === 0) {
         const err = '[dbUpsertUserChallenge] Unable to add user challenge.';
@@ -650,27 +650,27 @@ async function nftVersionMinterizer(req, res) {
     console.log(`[nftVersionMinterizer] imageName: ${imageName}`);
     console.log(`[nftVersionMinterizer] ownerId: ${ownerId}`);
     const response = await ardrivePinImage(imagePath, imageName);
-    console.log(`[nftVersionMinterizer] ardrivePinImage repsonse: ${JSON.stringify(response, null, 2)}`);
+    console.log(`[nftVersionMinterizer] ardrivePinImage response: ${JSON.stringify(response, null, 2)}`);
     const newNftId = uuidv4();
     const timestamp = Date.now();
     if (response.data) {
       const nft = new Nft({ date: timestamp, ownerId: ownerId, nftId: newNftId, data: response.data });
-      const existingNft = await db.dbFind('nfts', { nftId: nft.nftId });
+      const existingNft = await db.dbFind('nft_versions', { nftId: nft.nftId });
       if (Array.isArray(existingNft) && existingNft.length > 0) {
         const updatedNft = { ...existingNft[0], ...nft };
-        const updated = await db.dbUpdate('nfts', { nftId: nft.nftId }, updatedNft);
+        const updated = await db.dbUpdate('nft_versions', { nftId: nft.nftId }, updatedNft);
         if (!updated.modified) {
-          console.error( `[nftVersionMinterizer] unable to update nft: ${JSON.stringify(nft)}`);
+          console.error( `[nftVersionMinterizer] unable to update NFT version: ${JSON.stringify(nft)}`);
         }
-        console.error( `[nftVersionMinterizer] updated nft: ${JSON.stringify(nft)}`);
+        console.error( `[nftVersionMinterizer] updated NFT version: ${JSON.stringify(nft)}`);
       } else {
-        console.log(`Attempt to Insert nft...`);
-        await db.dbInsert('nfts', nft);
-        const results = await db.dbFind('nfts', { nftId: nft.nftId });
+        console.log(`Attempt to Insert NFT Version...`);
+        await db.dbInsert('nft_versions', nft);
+        const results = await db.dbFind('nft_versions', { nftId: nft.nftId });
         if (!Array.isArray(results) && results.length === 0) {
           console.error(`[nftVersionMinterizer] unable to add nft: ${JSON.stringify(nft)}`);
         }
-        console.log(`[nftVersionMinterizer] inserted NFT: ${JSON.stringify(results, null, 2)}`);
+        console.log(`[nftVersionMinterizer] inserted NFT Version: ${JSON.stringify(results, null, 2)}`);
       }
     }
     const store = storeFile(imagePath, './images_store')
@@ -691,15 +691,18 @@ async function nftVersionMinterizer(req, res) {
       return res.status(404).json({ success: false, data: '', error: imgResponse.error });
     }
     // response already formatted: `{success: true, data: data, error: ''}`
-    const found = await db.dbFind('nfts', { nftId: newNftId });
-    console.log(`\n----\n[nftVersionMinterizer] found newly minted NFT\n: ${JSON.stringify(found[0])}\n----\n`);
+    const found = await db.dbFind('nft_versions', { nftId: newNftId });
+    console.log(`\n----\n[nftVersionMinterizer] found newly minted NFT Version\n: ${JSON.stringify(found[0])}\n----\n`);
     res.status(200).json({success: true, data: found[0], error: ''});
   } catch (error) {
     console.error('[nftVersionMinterizer] UnhandledPromiseRejection:', error);
-    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+    res.status(500).json(
+      {
+        success: false,
+        data: '',
+        error: `[nftVersionMinterizer] UnhandledPromiseRejection: ${JSON.stringify(error)}` });
   }
 }
-
 
 const qrCodeGenerate = async (req, res) => {
   const url = req.body.url;
@@ -817,7 +820,16 @@ app.get('/get_nfts', async (req, res) => {
     const nfts = await dbQuery('nfts');
     res.status(200).json({ success: true, data: nfts, error: '' });
   } catch (error) {
-    console.error('Error in /get_nfts endpoint /get_nfts:', error);
+    console.error('Error in /get_nfts endpoint:', error);
+    res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
+  }
+});
+app.get('/get_nft_versions', async (req, res) => {
+  try {
+    const nfts = await dbQuery('nft_versions');
+    res.status(200).json({ success: true, data: nfts, error: '' });
+  } catch (error) {
+    console.error('Error in /get_nft_versions:', error);
     res.status(500).json({ success: false, data: '', error: 'Internal Server Error' });
   }
 });
