@@ -27,13 +27,15 @@ class NFTData {
 }
 
 class Nft {
-  constructor({ date, ownerId, nftId, data }) {
+  constructor({ date, ownerId, nftId, data, name, description }) {
     this.date = date,
     this.ownerId = ownerId,
     this.nftId = nftId;
     this.created = data.created;
     this.tips = data.tips;
     this.fees = data.fees;
+    this.name = name,
+    this.description = description
   }
 }
 
