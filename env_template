@@ -1,0 +1,8 @@
+AR_PROJECT_ROOT='~/Projects/Firebase/functions'
+AR_DRIVE_JWK='jwk_token.json'
+ARDRIVE_CLIENT=~/.nvm/versions/node/v18.16.0/bin/ardrive
+AR_DRIVE_ID=''
+AR_DRIVE_OWNER_ID=''
+AR_ARDRIVE_IMAGES_FOLDER_ID=''
+OUTPUT_DIRECTORY='images_storage'
+QR_CODE_STORE
